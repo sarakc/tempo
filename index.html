@@ -2340,7 +2340,7 @@ async function finishWorkout() {
   const base = d.planId && tplById(d.planId);
   if (base && (!base.lastUsed || base.lastUsed < doc.date)) writeDoc("templates/" + base.id, Object.assign(stripId(base), { lastUsed: doc.date }));
   clearTimeout(draftT);
-  S.draft = blankDraft(d.mode); S.showLog = false; lsSet("wt.draft", null); writeDoc("drafts/current", null);
+  dropUndo(); S.draft = blankDraft(d.mode); S.showLog = false; lsSet("wt.draft", null); writeDoc("drafts/current", null);
   S.tab = "history"; lsSet("wt.tab", "history"); stopRest(); window.scrollTo(0, 0); render(); toast("Workout logged 💪");
   return true;
 }
@@ -2545,7 +2545,7 @@ document.addEventListener("change", e => {
       if (!data || typeof data.db !== "object") { toast("That file isn't a Tempo backup."); return; }
       const n = Object.keys(data.db).filter(k => k.startsWith("workouts/")).length;
       confirmSheet(`Replace everything on this device${Sync.on() ? " and your synced devices" : ""} with the backup from ${String(data.exportedAt || "").slice(0, 10) || "that file"}? It has ${n} logged session${n === 1 ? "" : "s"}.`, "Restore", () => {
-        S.db.importAll(data.db); if (data.sounds) restoreSounds(data.sounds); if (data.draft) { S.draft = normDraft(data.draft) || S.draft; lsSet("wt.draft", S.draft); } toast("Backup restored"); render(); }, true); });
+        S.db.importAll(data.db); if (data.sounds) restoreSounds(data.sounds); dropUndo(); if (data.draft) { S.draft = normDraft(data.draft) || S.draft; lsSet("wt.draft", S.draft); } toast("Backup restored"); render(); }, true); });
     return;
   }
   if ("atime" in t.dataset) { if (/^\d{2}:\d{2}$/.test(t.value)) setSetting("alarmTime", t.value); return; }
