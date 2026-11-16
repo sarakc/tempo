@@ -2,7 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const EXPORTS = ["buildSteps", "applyFit", "totalAll", "counts", "blockTotal", "blockFixed", "stepsSig", "BAL"];
+const EXPORTS = ["buildSteps", "applyFit", "totalAll", "counts", "blockTotal", "blockFixed", "stepsSig", "BAL", "restRatios", "exWork", "exUnits", "normExercise", "planExercise", "SIDE_SWITCH"];
 
 const html = () => fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 

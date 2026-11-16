@@ -555,12 +555,14 @@ const emptySets = n => Array.from({ length: n }, () => ({ w: "", r: "" }));
 function mkBlock(names, rounds, tm) {
   const st = settings(); rounds = rounds || st.rounds;
   return { id: uid(), rounds, work: tm?.work ?? st.work, restEx: tm?.restEx ?? st.restEx, restRound: tm?.restRound ?? st.restRound,
-    exercises: names.map(n => ({ name: n || "", sets: emptySets(rounds) })) };
+    exercises: names.map(n => { const x = normExercise(n); x.sets = emptySets(rounds); return x; }), ...(tm?.lockTotal ? { lockTotal: true } : {}) };
 }
 function timingFrom(src) {
   const st = settings();
   return { restBlock: src?.restBlock ?? st.restBlock, ready: src?.ready ?? st.ready, restsOn: src?.restsOn ?? st.restsOn,
-    autoFit: src?.autoFit ?? st.autoFit, targetMin: src?.targetMin ?? st.targetMin, balance: src?.balance ?? st.balance, logReps: !!src?.logReps };
+    autoFit: src?.autoFit ?? st.autoFit, targetMin: src?.targetMin ?? st.targetMin, balance: src?.balance ?? st.balance, logReps: !!src?.logReps,
+    ...(num(src?.restScale) != null ? { restScale: num(src.restScale) } : {}), restLocks: src?.restLocks ? { ...src.restLocks } : {},
+    ...(src?.warmup ? { warmup: { ...src.warmup } } : {}), ...(src?.cooldown ? { cooldown: { ...src.cooldown } } : {}) };
 }
 function blankDraft(mode) {
   return Object.assign({ date: todayStr(), title: "", mode: mode || "reps", planId: null,
@@ -568,14 +570,15 @@ function blankDraft(mode) {
 }
 function draftFrom(src, title, planId) {
   return Object.assign({ date: S.draft?.date || todayStr(), title: title || "", mode: src.mode || "reps", planId: planId || null,
-    blocks: (src.blocks || []).map(b => mkBlock((b.exercises || []).map(e => typeof e === "string" ? e : e.name), b.rounds, b)),
+    blocks: (src.blocks || []).map(b => mkBlock(b.exercises || [], b.rounds, b)),
     notes: "", startedAt: null, durationSec: null }, timingFrom(src));
 }
 function normDraft(d) {
   if (!d || !Array.isArray(d.blocks)) return null;
   const t = timingFrom(d); for (const k in t) if (d[k] === undefined) d[k] = t[k];
   d.blocks.forEach(b => { b.id = b.id || uid(); b.rounds = Math.max(1, int(b.rounds, 3));
-    (b.exercises || (b.exercises = [])).forEach(e => { e.name = e.name || ""; e.sets = e.sets || [];
+    b.exercises = (b.exercises || []).map(normExercise);
+    b.exercises.forEach(e => {
       while (e.sets.length < b.rounds) e.sets.push({ w: "", r: "" }); }); });
   d.mode = d.mode === "timer" ? "timer" : "reps";
   return d;
@@ -583,9 +586,10 @@ function normDraft(d) {
 const draftHasData = d => !!d && (d.notes?.trim() || d.blocks.some(b => b.exercises.some(e => e.sets.some(s => String(s.w).trim() || String(s.r).trim()))));
 function planFromObj(o, name, extra) {
   return Object.assign({ name: (name ?? o.name ?? "").trim() || "Untitled workout", folder: (o.folder || "").trim(), starred: !!o.starred, mode: o.mode,
-    autoFit: !!o.autoFit, targetMin: num(o.targetMin) ?? DEF.targetMin, balance: o.balance || "even", restsOn: !!o.restsOn,
+    autoFit: !!o.autoFit, targetMin: num(o.targetMin) ?? DEF.targetMin, balance: o.balance || "even", ...(num(o.restScale) != null ? { restScale: num(o.restScale), balance: num(o.restScale) <= 0.8 ? "work" : num(o.restScale) >= 1.25 ? "rest" : "even" } : {}),
+    restLocks: o.restLocks ? { ...o.restLocks } : {}, ...(o.warmup ? { warmup: { ...o.warmup } } : {}), ...(o.cooldown ? { cooldown: { ...o.cooldown } } : {}), restsOn: !!o.restsOn,
     restBlock: int(o.restBlock, 0), ready: int(o.ready, 0), logReps: !!o.logReps,
-    blocks: o.blocks.map(b => ({ rounds: b.rounds, work: int(b.work, 0), restEx: int(b.restEx, 0), restRound: int(b.restRound, 0), exercises: b.exercises.map(e => e.name.trim()).filter(Boolean) })),
+    blocks: o.blocks.map(b => ({ rounds: b.rounds, work: int(b.work, 0), restEx: int(b.restEx, 0), restRound: int(b.restRound, 0), exercises: b.exercises.filter(e => e.name.trim()).map(planExercise), ...(b.lockTotal ? { lockTotal: true } : {}) })),
     updatedAt: Date.now() }, extra || {});
 }
 function objFromPlan(t) {
@@ -641,6 +645,23 @@ function applyFit(d) {
   d.restBlock = bl;
 }
 
+const SIDE_SWITCH = 5;
+const restRatios = d => { const k = num(d.restScale); return k != null ? { ex: BAL.even.ex * k, rd: BAL.even.rd * k, bl: BAL.even.bl * k } : (BAL[d.balance] || BAL.even); };
+const exWork = (e, b) => int(e.work, null) ?? int(b.work, 1);
+const exUnits = e => e.side ? 2 : 1;
+function normExercise(e) {
+  const o = typeof e === "string" ? { name: e } : (e || {});
+  const r = { id: o.id || uid(), name: o.name || "", sets: Array.isArray(o.sets) ? o.sets : [] };
+  const w = parseInt(o.work, 10); if (isFinite(w) && w > 0) r.work = w;
+  if (o.side === true) r.side = true;
+  return r;
+}
+function planExercise(e) {
+  const r = { name: String(e.name || "").trim() };
+  const w = parseInt(e.work, 10); if (isFinite(w) && w > 0) r.work = w;
+  if (e.side === true) r.side = true;
+  return r;
+}
 const stepsSig = steps => steps.map(s => s.k[0] + s.dur).join(",");
 /* @end-testable */
 /* ---------- history index ---------- */
@@ -2026,13 +2047,15 @@ async function logSession(d) {
 }
 async function finishWorkout() {
   const d = S.draft, timer = d.mode === "timer", keepReps = !timer || d.logReps;
-  const blocks = d.blocks.map((b, bi) => ({ label: "Superset " + (LET[bi] || bi + 1), rounds: b.rounds, work: int(b.work, 0), restEx: int(b.restEx, 0), restRound: int(b.restRound, 0),
-    exercises: b.exercises.filter(e => e.name.trim()).map(e => ({ name: e.name.trim(), sets: e.sets.slice(0, b.rounds).map(s => ({ w: String(s.w ?? "").trim(), r: keepReps ? String(s.r ?? "").trim() : "" })) })) }))
+  const blocks = d.blocks.map((b, bi) => ({ label: "Superset " + (LET[bi] || bi + 1), rounds: b.rounds, work: int(b.work, 0), restEx: int(b.restEx, 0), restRound: int(b.restRound, 0), ...(b.lockTotal ? { lockTotal: true } : {}),
+    exercises: b.exercises.filter(e => e.name.trim()).map(e => ({ name: e.name.trim(), ...(planExercise(e).work ? { work: planExercise(e).work } : {}), ...(e.side === true ? { side: true } : {}), sets: e.sets.slice(0, b.rounds).map(s => ({ w: String(s.w ?? "").trim(), r: keepReps ? String(s.r ?? "").trim() : "" })) })) }))
     .filter(b => b.exercises.length);
   if (!blocks.length) { toast("Add at least one exercise before logging."); return false; }
   if (!S.db) { toast("Saving isn't available in this view."); return false; }
   const doc = { date: d.date || todayStr(), title: (d.title || "").trim(), mode: d.mode, blocks, notes: (d.notes || "").trim(), planId: d.planId || null,
     restBlock: int(d.restBlock, 0), ready: int(d.ready, 0), restsOn: !!d.restsOn, autoFit: !!d.autoFit, targetMin: num(d.targetMin), balance: d.balance || "even", logReps: !!d.logReps,
+    ...(num(d.restScale) != null ? { restScale: num(d.restScale) } : {}), restLocks: d.restLocks ? { ...d.restLocks } : {},
+    ...(d.warmup ? { warmup: { ...d.warmup } } : {}), ...(d.cooldown ? { cooldown: { ...d.cooldown } } : {}),
     durationSec: d.durationSec || (d.startedAt ? Math.round((Date.now() - d.startedAt) / 1000) : null), createdAt: Date.now() };
   setSync("Saving…");
   try { await S.db.collection("workouts").add(clone(doc)); }
