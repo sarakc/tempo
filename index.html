@@ -1244,6 +1244,14 @@ function quickList() {
   return { items, label };
 }
 
+const SEG_NAME = { warmup: "Warm-up", cooldown: "Cool-down" };
+function segCard(o, which) {
+  const g = o[which], nm = SEG_NAME[which];
+  if (!g) return `<button class="addex" style="margin:0 0 12px;background:var(--card)" data-act="add-seg" data-seg="${which}">+ Add ${nm.toLowerCase()}</button>`;
+  return `<div class="card" data-seg-card="${which}"><div class="bh tm"><input class="in grow" data-bind="${which}.name" data-k="${which}name" value="${esc(g.name)}" placeholder="${nm}" aria-label="${nm} name">
+    ${timeChip({ t: "seg", which }, fmt(segDur(g)), true, nm + " time", "tc-" + which)}
+    <button class="icon" data-act="rm-seg" data-seg="${which}" aria-label="Remove ${nm.toLowerCase()}">${IC.trash}</button></div></div>`;
+}
 function viewBuilder(o, opt) {
   const compose = !!(opt && opt.compose), plan = isPlan(o), st = settings(), unit = st.unit, timer = o.mode === "timer", fit = timer && o.autoFit;
   const showGrid = !plan && (!timer || S.showLog || !!o.durationSec || draftHasData(o));
@@ -1297,6 +1305,7 @@ function viewBuilder(o, opt) {
     h += `</div>`;
   }
   h += `<div class="fillrow"><button class="btn sm" data-act="fill" style="display:flex;align-items:center;gap:6px">${IC.shuffle}Fill for me</button><span class="small muted">Random picks from your library</span></div>`;
+  if (timer) h += segCard(o, "warmup");
   o.blocks.forEach((b, bi) => {
     const R = b.rounds, L = LET[bi] || bi + 1;
     h += `<div class="card" data-sb="${bi}">
@@ -1342,6 +1351,7 @@ function viewBuilder(o, opt) {
     h += `<button class="addex" data-act="add-ex" data-b="${bi}">+ Add exercise</button></div>`;
   });
   h += `<button class="addex" style="margin:0 0 12px;background:var(--card)" data-act="add-block">+ Add superset</button>`;
+  if (timer) h += segCard(o, "cooldown");
   if (plan) {
     h += `<div class="card"><button class="btn ${timer ? "" : "accent"} big" data-act="use-edit">${timer ? "Load on Today without starting" : IC.ps + "Use this workout today"}</button>
       <div class="acts" style="margin-top:8px"><button class="btn" data-act="dup-t" data-id="${esc(S.edit.id)}">Duplicate</button><button class="btn danger" data-act="del-t" data-id="${esc(S.edit.id)}">Delete</button></div></div>`;
@@ -1539,10 +1549,12 @@ function viewHistory() {
     if (open) {
       h += `<div class="hb">`;
       if (k === "workout") {
+        if (w.mode === "timer" && w.warmup && segDur(w.warmup)) h += `<div class="hl"><span>${esc(w.warmup.name || "Warm-up")}</span><span>Warm-up · ${fmt(segDur(w.warmup))}</span></div>`;
         (w.blocks || []).forEach((b, bi) => {
           h += `<h4>${esc(b.label || "Superset " + LET[bi])} · ${b.rounds} rounds${w.mode === "timer" && b.work ? ` · ${b.work}s work` : ""}</h4>`;
           (b.exercises || []).forEach(e => { h += `<div class="hl"><span>${esc(e.name)}</span><span>${esc(fmtSets(e.sets, w.mode, unit)) || "—"}</span></div>`; });
         });
+        if (w.mode === "timer" && w.cooldown && segDur(w.cooldown)) h += `<div class="hl"><span>${esc(w.cooldown.name || "Cool-down")}</span><span>Cool-down · ${fmt(segDur(w.cooldown))}</span></div>`;
       } else if (k === "focus") h += `<div class="hl"><span>Rounds</span><span>${w.rounds || 0} of ${w.roundsPlanned || w.rounds || 0} × ${w.focusMin || 25} min</span></div>`;
       else h += `<div class="hl"><span>Breathing guide</span><span>${esc(CLABEL.medGuide(w.guide) || "Off")}</span></div>${w.feel ? `<div class="hl"><span>Felt</span><span>${esc(w.feel)}</span></div>` : ""}`;
       if (w.notes) h += `<h4>Notes</h4><div>${esc(w.notes)}</div>`;
@@ -2020,6 +2032,7 @@ function phaseInfo(i) {
   const st = T.steps[i];
   if (st.k === "work") return { label: "Work", sub: "Go! Do it now", go: true };
   if (st.sub === "side") return { label: "Switch sides", sub: "" };
+  if (st.k === "seg") return { label: SEG_NAME[st.sub], sub: "" };
   const n = nextWorkIdx(i), nx = n >= 0 ? T.steps[n] : null;
   if (st.sub === "ready") return { label: "Get ready", sub: "First up" };
   if (st.sub === "switch") return { label: "Get ready", sub: "Move to the next exercise" };
@@ -2037,6 +2050,7 @@ function cue(prefix) {
     say(prefix + pre + exName(st) + (st.side ? `, side ${st.side}` : "")); return;
   }
   playSound(s.sWorkRest); buzz([80, 60, 80]);
+  if (st.k === "seg") { say(prefix + st.name); return; }
   const n = nextWorkIdx(T.i), name = n >= 0 ? exName(T.steps[n]) : "";
   const p = phaseInfo(T.i);
   if (st.sub === "side") say(prefix + "Switch sides");
@@ -2221,7 +2235,7 @@ function drawTimer(full) {
   const C = 2 * Math.PI * 54, frac = T.done ? 0 : rem / st.dur;
   const numTxt = rem >= 60 ? fmt(Math.ceil(rem)) : String(Math.ceil(rem));
   if (full) {
-    el.className = "open " + (T.done ? "done" : st.k);
+    el.className = "open " + (T.done ? "done" : st.k === "seg" ? "rest" : st.k);
     let body, top = false;
     if (T.done) {
       top = true;
@@ -2245,11 +2259,12 @@ function drawTimer(full) {
       const reps = !!S.draft.logReps, prevI = prevWorkIdx(T.i), prev = !isWork && prevI >= 0 ? T.steps[prevI] : null;
       let logs = "";
       if (!isWork && st.sub !== "side") { if (reps && prev) logs += `<div class="tmeta" style="width:100%">Reps for ${esc(exName(prev))}:</div>` + logInputs(prev, "r"); if (tgt) logs += (reps && prev ? `<div class="tmeta" style="width:100%;margin-top:4px">Weight for ${esc(exName(tgt))}:</div>` : "") + logInputs(tgt, "w"); }
-      const nextName = isWork && T.steps[T.i + 1]?.sub === "side" ? "Switch sides" : ups[0] || "";
+      const nxS = T.steps[T.i + 1], nextName = isWork && nxS?.sub === "side" ? "Switch sides" : ups[0] || (nxS?.k === "seg" ? nxS.name : "");
+      const segMain = st.k === "seg" ? `<div class="tname2">${esc(st.name)}</div><div class="tmeta2">${tgt ? `Up next: ${esc(stName(tgt))}` : "Last stretch"}</div>` : "";
       const sub = !T.paused && !isWork && p.sub && st.sub !== "switch" ? p.sub : "";
       body = `<div class="tlab2">${T.paused ? "Paused" : esc(p.label)}${sub ? ` <span>· ${esc(sub)}</span>` : ""}</div>
         <div class="tnumrow"><button class="tadj" data-act="t-minus" aria-label="Take 15 seconds off">−15</button><div class="tbig${rem >= 60 ? " mm" : ""}" id="tnum">${numTxt}</div><button class="tadj" data-act="t-plus" aria-label="Add 15 seconds">+15</button></div>
-        ${tgt ? `${isWork ? "" : `<div class="tlab3">Up next</div>`}<div class="tname2">${esc(stName(tgt))}</div><div class="tmeta2">Round ${tgt.r + 1} of ${blk.rounds} · Superset ${LET[tgt.b]}</div>` : `<div class="tname2">Last stretch!</div>`}
+        ${segMain || (tgt ? `${isWork ? "" : `<div class="tlab3">Up next</div>`}<div class="tname2">${esc(stName(tgt))}</div><div class="tmeta2">Round ${tgt.r + 1} of ${blk.rounds} · Superset ${LET[tgt.b]}</div>` : `<div class="tname2">Last stretch!</div>`)}
         ${logs ? `<div class="tws">${logs}</div>` : ""}
         <div class="taphint">${T.paused ? "Tap anywhere to resume" : "Tap anywhere to pause"}</div>`;
       body = `<div class="tmain" data-act="t-pause">${body}</div><div class="tnext"><span>Next</span><b>${esc(nextName || "Finish")}</b></div>`;
@@ -2467,7 +2482,7 @@ async function finishWorkout() {
   const doc = { date: d.date || todayStr(), title: (d.title || "").trim(), mode: d.mode, blocks, notes: (d.notes || "").trim(), planId: d.planId || null,
     restBlock: int(d.restBlock, 0), ready: int(d.ready, 0), restsOn: !!d.restsOn, autoFit: !!d.autoFit, targetMin: num(d.targetMin), balance: d.balance || "even", logReps: !!d.logReps,
     ...(num(d.restScale) != null ? { restScale: num(d.restScale) } : {}), restLocks: d.restLocks ? { ...d.restLocks } : {},
-    ...(d.warmup ? { warmup: { ...d.warmup } } : {}), ...(d.cooldown ? { cooldown: { ...d.cooldown } } : {}),
+    ...(timer && d.warmup ? { warmup: { ...d.warmup } } : {}), ...(timer && d.cooldown ? { cooldown: { ...d.cooldown } } : {}),
     durationSec: d.durationSec || (d.startedAt ? Math.round((Date.now() - d.startedAt) / 1000) : null), createdAt: Date.now() };
   setSync("Saving…");
   try { await S.db.collection("workouts").add(clone(doc)); }
@@ -2531,6 +2546,8 @@ document.addEventListener("click", e => {
       const go = () => { snapUndo("Superset removed"); o.blocks.splice(bi, 1); touch(o); render(); };
       has ? confirmSheet(`Remove Superset ${LET[bi]} and everything in it?`, "Remove", go, true) : go(); break;
     }
+    case "add-seg": { const w = t.dataset.seg; if (!SEG_NAME[w]) break; o[w] = { name: SEG_NAME[w], dur: 300 }; touch(o); render(); break; }
+    case "rm-seg": { const w = t.dataset.seg; if (!SEG_NAME[w]) break; snapUndo(SEG_NAME[w] + " removed"); if (S.te) closeSheet(); S.tlSel = null; delete o[w]; touch(o); render(); break; }
     case "add-block": openPicker(o.blocks.length, 0); break;
     case "add-ex": openPicker(bi, o.blocks[bi].exercises.length); break;
     case "rm-ex": removeExercise(o, bi, ei); break;
@@ -2668,6 +2685,7 @@ document.addEventListener("input", e => {
   if (t.id === "wq") { S.wq = t.value; render(); return; }
   if (t.dataset.bind) {
     const k = t.dataset.bind;
+    if (k === "warmup.name" || k === "cooldown.name") { const g = o[k.split(".")[0]]; if (g) { g.name = t.value; touch(o); updTimerUI(); } return; }
     if (k === "restsOn" || k === "autoFit" || k === "logReps") { o[k] = t.checked; touch(o); render(); return; }
     if (k === "targetMin") o.autoFit = true;
     if (k === "restScale") { const v = num(t.value); if (v != null) o.restScale = v; touch(o); updTimerUI(); return; }
