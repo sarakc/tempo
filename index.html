@@ -456,6 +456,9 @@ button.orow:active{transform:none;opacity:.6}
 .tlab2{font-size:13px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;opacity:.85}
 .tlab2 span{letter-spacing:.06em;opacity:.85}
 .tbig{font-family:"Space Grotesk",system-ui,sans-serif;font-weight:700;font-size:clamp(120px,42vw,230px);line-height:.88;letter-spacing:-.045em;margin:8px 0 14px;font-variant-numeric:tabular-nums}
+.tnumrow{display:flex;align-items:center;justify-content:center;gap:10px;width:100%}
+.tnumrow .tbig{margin:8px 0 14px}
+.tadj{border:0;border-radius:22px;min-width:52px;height:44px;padding:0 10px;background:color-mix(in srgb,currentColor 12%,transparent);color:inherit;font:700 15px "Space Grotesk",system-ui,sans-serif;flex:none}
 .tbig.mm{font-size:clamp(88px,29vw,170px)}
 .tlab3{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.7;margin-bottom:3px}
 .tname2{font-family:"Space Grotesk",system-ui,sans-serif;font-weight:700;font-size:clamp(30px,9vw,46px);line-height:1.05}
@@ -786,6 +789,7 @@ function planExercise(e) {
   return r;
 }
 const stepsSig = steps => steps.map(s => s.k[0] + s.dur + (s.k === "work" ? ":" + s.bid + "." + s.eid + (s.side ? ":s" + s.side : "") : "")).join(",");
+const applyAdj = (steps, adj) => steps.map((st, i) => adj && adj[i] ? Object.assign({}, st, { dur: Math.max(1, st.dur + adj[i]) }) : st);
 /* @end-testable */
 /* ---------- history index ---------- */
 function rebuildIndex() {
@@ -1986,10 +1990,11 @@ function startTimer(fresh) {
   if (S.mode !== "workout") { S.mode = "workout"; lsSet("tempo.mode", "workout"); }
   const sig = stepsSig(steps), rs = S.draft.resume;
   const r = !fresh && rs && rs.sig === sig && rs.i < steps.length ? rs : null;
+  const adj = r && r.adj ? Object.assign({}, r.adj) : {}, shown = applyAdj(steps, adj);
   if (!r) { S.draft.durationSec = null; S.draft.startedAt = S.draft.startedAt && draftHasData(S.draft) ? S.draft.startedAt : Date.now(); }
-  const now = Date.now(), i = r ? r.i : 0, rem = r ? Math.max(1000, r.rem) : steps[0].dur * 1000;
+  const now = Date.now(), i = r ? r.i : 0, rem = r ? Math.max(1000, r.rem) : shown[0].dur * 1000;
   { const st0 = settings(); warmSounds([st0.sWorkGo, st0.sWorkRest, st0.sWorkCount, st0.sWorkDone]); }
-  T = { mode: "workout", steps, sig, i, paused: false, remaining: rem, endAt: now + rem, started: now - (r ? (r.el || 0) * 1000 : 0), pausedMs: 0, pausedAt: null, cueKey: null, done: false, ask: false };
+  T = { mode: "workout", steps: shown, adj, sig, i, paused: false, remaining: rem, endAt: now + rem, started: now - (r ? (r.el || 0) * 1000 : 0), pausedMs: 0, pausedAt: null, cueKey: null, done: false, ask: false };
   $("#timer").classList.add("open"); renderRest(); renderBar();
   T.int = setInterval(tick, 100);
   saveResume(); cue(r ? "Resuming. " : ""); drawTimer(true);
@@ -2006,7 +2011,7 @@ function startSession(mode, steps, extra) {
 }
 function saveResume() {
   if (!T || T.done || T.mode !== "workout") return;
-  S.draft.resume = { i: T.i, rem: Math.round(T.paused ? T.remaining : T.endAt - Date.now()), el: elapsedSec(), sig: T.sig };
+  S.draft.resume = { i: T.i, rem: Math.round(T.paused ? T.remaining : T.endAt - Date.now()), el: elapsedSec(), sig: T.sig, adj: T.adj };
   saveDraftSoon();
 }
 function phaseInfo(i) {
@@ -2081,6 +2086,16 @@ function togglePause() {
   if (T.paused) { T.paused = false; T.held = false; T.lastTick = Date.now(); T.endAt = Date.now() + T.remaining; T.pausedMs += Date.now() - T.pausedAt; T.pausedAt = null; }
   else { T.paused = true; T.pausedAt = Date.now(); T.remaining = T.endAt - Date.now(); try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {} }
   saveResume(); drawTimer(true);
+}
+function adjustStep(d) {
+  if (!T || T.done || T.ask || T.mode !== "workout") return;
+  const st = T.steps[T.i], rem = T.paused ? T.remaining : T.endAt - Date.now();
+  if (d < 0 && rem <= 1000) { gotoStep(T.i + 1); return; }
+  const by = d < 0 ? -Math.min(-d, Math.floor((rem - 1000) / 1000)) : d;
+  if (!by) return;
+  T.adj[T.i] = (T.adj[T.i] || 0) + by; if (!T.adj[T.i]) delete T.adj[T.i]; st.dur = Math.max(1, st.dur + by);
+  if (T.paused) T.remaining += by * 1000; else { T.endAt += by * 1000; T.remaining = T.endAt - Date.now(); }
+  T.cueKey = null; saveResume(); drawTimer(true);
 }
 function prevStep() { const st = T.steps[T.i]; const el = st.dur * 1000 - T.remaining; gotoStep(el > 3000 || T.i === 0 ? T.i : T.i - 1); }
 const elapsedSec = () => T ? Math.round(((T.done ? T.doneAt : (T.paused ? T.pausedAt : Date.now())) - T.started - T.pausedMs) / 1000) : 0;
@@ -2229,7 +2244,7 @@ function drawTimer(full) {
       const nextName = ups[0] || "";
       const sub = !T.paused && !isWork && p.sub && st.sub !== "switch" ? p.sub : "";
       body = `<div class="tlab2">${T.paused ? "Paused" : esc(p.label)}${sub ? ` <span>· ${esc(sub)}</span>` : ""}</div>
-        <div class="tbig${rem >= 60 ? " mm" : ""}" id="tnum">${numTxt}</div>
+        <div class="tnumrow"><button class="tadj" data-act="t-minus" aria-label="Take 15 seconds off">−15</button><div class="tbig${rem >= 60 ? " mm" : ""}" id="tnum">${numTxt}</div><button class="tadj" data-act="t-plus" aria-label="Add 15 seconds">+15</button></div>
         ${tgt ? `${isWork ? "" : `<div class="tlab3">Up next</div>`}<div class="tname2">${esc(exName(tgt))}</div><div class="tmeta2">Round ${tgt.r + 1} of ${blk.rounds} · Superset ${LET[tgt.b]}</div>` : `<div class="tname2">Last stretch!</div>`}
         ${logs ? `<div class="tws">${logs}</div>` : ""}
         <div class="taphint">${T.paused ? "Tap anywhere to resume" : "Tap anywhere to pause"}</div>`;
@@ -2563,6 +2578,8 @@ document.addEventListener("click", e => {
     /* timer */
     case "t-pause": if (e.target.closest("input, label")) break; togglePause(); break;
     case "t-next": gotoStep(T.i + 1); break;
+    case "t-minus": adjustStep(-15); break;
+    case "t-plus": adjustStep(15); break;
     case "t-prev": prevStep(); break;
     case "t-mute": S.muted = !S.muted; lsSet("wt.muted", S.muted); if (!S.muted) ensureAudio(); drawTimer(true); break;
     case "t-voice": S.voice = !S.voice; lsSet("wt.voice", S.voice); if (S.voice) say("Voice on"); else try { speechSynthesis.cancel(); } catch {} drawTimer(true); break;

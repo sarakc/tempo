@@ -283,3 +283,22 @@ test("backCalcWork: each-side exercise counts two units and switch steps", () =>
   d.blocks[0].work = w;
   assert.ok(Math.abs(T.blockTotal(d.blocks[0], d) - 600) <= 9);
 });
+
+test("applyAdj adds seconds to the named steps and floors at 1", () => {
+  const d = timerDraft({}, [blk(["Squat", "Row"])]); T.applyFit(d);
+  const base = T.buildSteps(d), out = T.applyAdj(base, { 1: 15, 2: -999 });
+  assert.equal(out.length, base.length);
+  assert.equal(out[1].dur, base[1].dur + 15);
+  assert.equal(out[2].dur, 1);
+  assert.equal(out[0].dur, base[0].dur);
+  assert.equal(base[1].dur, out[1].dur - 15, "input steps are not mutated");
+  assert.deepEqual(plain(T.applyAdj(base, null)), plain(base));
+});
+
+test("applyAdj leaves the signature of the base steps alone", () => {
+  const d = timerDraft({}, [blk(["Squat", "Row"])]); T.applyFit(d);
+  const base = T.buildSteps(d), sig = T.stepsSig(base);
+  T.applyAdj(base, { 1: 15 });
+  assert.equal(T.stepsSig(T.buildSteps(d)), sig);
+  // reordered signature differs: covered by "swapping two identically timed exercises changes it"
+});
