@@ -26,10 +26,17 @@ SOUNDS
   Choose from the built-in sounds or "Add a sound file" from your phone (MP3, WAV or M4A, up to 5 MB).
   Your sound files stay on the device and are included in backups.
 
-YOUR DATA
-  Everything is saved on the device, in the browser you use the app in. Nothing is sent anywhere.
-  Settings > "Download backup" saves a file you can restore on another phone or browser.
-  Clearing your browser's website data deletes it, so keep a backup.
+YOUR DATA AND SYNC
+  Everything is saved on the device first, so the app works offline.
+  Sync (Settings > Set up sync) keeps a private copy in a secret GitHub gist called
+  tempo-sync.json and keeps all your devices the same:
+    1. Create a token at github.com/settings/tokens/new?scopes=gist (only the "gist" box,
+       no expiration). Save it in your password manager.
+    2. Paste it into Tempo on each device. Devices merge record by record (each logged
+       session, saved workout, the library, settings), and the newest change wins.
+  It syncs on open, a few seconds after each change, and when you come back to the app.
+  The token is stored only on the device. "Turn off" stops syncing but keeps your data.
+  Custom sound files are not synced. "Download backup" saves a file that includes them.
 
 GOOD TO KNOW
   - Alarm: a web app can only ring while it is open on screen. Leave Tempo open on the
@@ -37,4 +44,4 @@ GOOD TO KNOW
   - Timers keep the screen awake while they run. If you lock the phone or switch apps,
     the countdown catches up when you come back, but sounds may not play in the meantime.
   - To rename the app, change "Tempo" in index.html (the <title> tag, APP_NAME and the
-    <h1>) and in manifest.webmanifest.
+    in manifest.webmanifest.

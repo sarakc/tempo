@@ -19,71 +19,92 @@
 @font-face{font-family:"Space Grotesk";font-style:normal;font-weight:600;font-display:swap;src:url(fonts/space-grotesk-latin-600-normal.woff2) format("woff2")}
 @font-face{font-family:"Space Grotesk";font-style:normal;font-weight:700;font-display:swap;src:url(fonts/space-grotesk-latin-700-normal.woff2) format("woff2")}
 :root{
-  --bg:#f6f6f4;--bg2:#ececea;--card:#ffffff;--ink:#141416;--muted:#67676c;--line:#e3e3df;
-  --accent:#141416;--accent-ink:#ffffff;--hi:#d4ff3a;--hi-ink:#141416;--warn:#b42318;--gold:#141416;
-  --tl-w:#141416;--tl-r:#c4c4bf;--tl-g:#e3e3df;
-  --t-work:#d4ff3a;--t-work-ink:#141416;--t-rest:#141416;--t-rest-ink:#f6f6f4;--t-ready:#ececea;--t-ready-ink:#141416;--t-done:#141416;--t-done-ink:#f6f6f4;
-  --shadow:0 1px 2px rgba(0,0,0,.04);--dot-med:#1b1814;
+  --bg:#f5f5f3;--bg2:#ecece9;--card:#ffffff;--ink:#121214;--muted:#6f6f75;--line:#ebebe7;--hair:rgba(18,18,20,.06);--track:#dcdcd7;
+  --accent:#121214;--accent-ink:#ffffff;--hi:#d4ff3a;--hi-ink:#121214;--warn:#c0362c;--gold:#121214;
+  --tl-w:#121214;--tl-r:#c4c4bf;--tl-g:#e3e3df;
+  --t-work:#d4ff3a;--t-work-ink:#121214;--t-rest:#121214;--t-rest-ink:#f5f5f3;--t-ready:#ecece9;--t-ready-ink:#121214;--t-done:#121214;--t-done-ink:#f5f5f3;
+  --shadow:0 1px 2px rgba(18,18,20,.04),0 4px 16px rgba(18,18,20,.03);--dot-med:#1b1814;--glass:rgba(245,245,243,.82);
+  --r:20px;--r-sm:12px;
 }
 @media (prefers-color-scheme:dark){
-  :root{--bg:#0d0d0e;--bg2:#1c1c1f;--card:#161618;--ink:#f3f3f1;--muted:#9c9ca3;--line:#2a2a2e;
-    --accent:#d4ff3a;--accent-ink:#141416;--warn:#ff8a7a;--gold:#d4ff3a;
+  :root{--bg:#0b0b0c;--bg2:#1b1b1e;--card:#151517;--ink:#f3f3f1;--muted:#9a9aa1;--line:#26262a;--hair:rgba(255,255,255,.06);--track:#38383d;
+    --accent:#d4ff3a;--accent-ink:#121214;--warn:#ff8a7a;--gold:#d4ff3a;
     --tl-w:#d4ff3a;--tl-r:#4a4a50;--tl-g:#2a2a2e;
-    --t-rest:#232327;--t-rest-ink:#f3f3f1;--t-ready:#1c1c1f;--t-ready-ink:#f3f3f1;--t-done:#161618;--t-done-ink:#f3f3f1;--shadow:none;--dot-med:#e8d5b5}
+    --t-rest:#222226;--t-rest-ink:#f3f3f1;--t-ready:#1b1b1e;--t-ready-ink:#f3f3f1;--t-done:#151517;--t-done-ink:#f3f3f1;--shadow:none;--dot-med:#e8d5b5;--glass:rgba(11,11,12,.8)}
 }
 *{box-sizing:border-box}
 html,body{margin:0}
-body{font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);-webkit-tap-highlight-color:transparent}
-button{font:inherit;color:inherit;cursor:pointer}
+html{background:var(--bg)}
+body{font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);-webkit-tap-highlight-color:transparent;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-user-select:none;user-select:none}
 button:disabled{opacity:.45;cursor:default}
-.num,h1,.bl,.ttl,.big-num,.pname{font-family:"Space Grotesk",system-ui,sans-serif}
-header{position:sticky;top:0;z-index:10;background:var(--bg)}
-.hwrap{max-width:720px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top)) 10px 6px 16px}
-.brand{display:flex;align-items:center;justify-content:space-between;gap:8px}
-h1{font-size:20px;margin:0;letter-spacing:-.01em}
-h1 span{color:var(--muted)}
-.sync{font-size:12px;color:var(--muted);white-space:nowrap}
-.sync.bad{color:var(--warn)}
-nav.tabs{display:flex;margin-top:8px}
-nav.tabs button{flex:1;padding:10px 0 11px;border:0;background:none;font-weight:600;color:var(--muted);border-bottom:2.5px solid transparent;font-size:14.5px}
-nav.tabs button.on{color:var(--ink);border-color:var(--accent)}
-main{max-width:720px;margin:0 auto;padding:6px 12px 170px}
-.banner{background:var(--bg2);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--muted);margin-bottom:12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
-.ttl{font-weight:700;font-size:16px;margin:0 0 8px}
+button:not(:disabled):active{transform:scale(.97)}
+button,.in,a.btn{transition:background-color .15s,border-color .15s,color .15s,box-shadow .15s,transform .1s}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.num,h1,.bl,.ttl,.big-num,.pname,.ptitle{font-family:"Space Grotesk",system-ui,sans-serif}
+main{max-width:720px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top)) 16px 180px}
+/* page heads */
+.phead{display:flex;align-items:flex-end;gap:10px;margin:4px 0 16px;min-height:48px}
+.eyebrow{font-size:13px;color:var(--muted);font-weight:600;margin-bottom:1px}
+.ptitle{font-size:32px;font-weight:700;line-height:1.08;letter-spacing:-.025em;margin:0;overflow-wrap:anywhere}
+.phead .btn{margin-bottom:4px}
+.syncdot{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;border:0;background:var(--bg2);color:var(--muted);flex:none;padding:0;margin-bottom:2px}
+.syncdot.ok{color:var(--ink)} .syncdot.bad{color:var(--warn)} .syncdot.busy svg{animation:pulse 1.2s ease-in-out infinite}
+.syncdot.lg{width:44px;height:44px;margin:0}
+@keyframes pulse{50%{opacity:.35}}
+.synchead{display:flex;align-items:center;gap:12px}
+.synchead b{font-size:15.5px}
+.divider{height:1px;background:var(--line);margin:16px 0 14px}
+.steps{margin:0;padding:0 0 0 22px;display:flex;flex-direction:column;gap:18px}
+.steps li{padding-left:4px}
+.steps li>b{display:block;font-size:15.5px;margin-bottom:4px}
+.steps .btn,.steps .in{margin:10px 0 8px}
+.steps .in{font-family:ui-monospace,Menlo,monospace;font-size:15px}
+.banner{background:var(--bg2);border-radius:var(--r-sm);padding:10px 12px;font-size:13px;color:var(--muted);margin-bottom:12px}
+.card{background:var(--card);border:1px solid var(--hair);border-radius:var(--r);padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
+.card p{margin:12px 0 14px;line-height:1.5}
+.ttl{font-weight:700;font-size:17px;margin:0 0 10px;letter-spacing:-.01em}
 .muted{color:var(--muted)}
-.small{font-size:12.5px}
+.small{font-size:13px}
 .warn{color:var(--warn);font-weight:600}
 .row2{display:flex;gap:10px}
 .grow{flex:1;min-width:0}
-.fld{display:block;margin-bottom:10px}
-.fld>span{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;font-weight:600}
-.in{width:100%;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:9px 10px;font:inherit;font-size:16px;outline:none;min-width:0}
-.in:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent)}
-.in:disabled{opacity:1;background:var(--bg2);color:var(--muted);border-color:transparent}
+.fld{display:block;margin-bottom:12px}
+.fld>span{display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px;font-weight:600}
+.in{width:100%;border:1px solid transparent;background:var(--bg2);color:var(--ink);border-radius:var(--r-sm);padding:11px 12px;font:inherit;font-size:16px;outline:none;min-width:0;-webkit-appearance:none;appearance:none}
+.in::placeholder{color:var(--muted);opacity:.8}
+.in:focus{border-color:var(--ink);background:var(--card)}
+.in:disabled{opacity:1;color:var(--muted);background:transparent;border-color:var(--line)}
+.in.search{margin-bottom:2px}
 textarea.in{resize:vertical}
-select.in{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 16px) 50%,calc(100% - 11px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:28px}
-.seg{display:flex;background:var(--bg2);border-radius:12px;padding:3px}
+select.in{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:32px}
+.seg{display:flex;background:var(--bg2);border-radius:var(--r-sm);padding:3px}
 .seg button{flex:1;border:0;background:none;padding:9px 6px;border-radius:9px;font-weight:600;color:var(--muted);font-size:14px}
-.seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
-.btn{border:1px solid var(--line);background:var(--card);border-radius:11px;padding:10px 14px;font-weight:600}
-.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-.btn.accent{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-.btn.ghost{border-color:transparent;background:none;color:var(--muted)}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1),0 0 0 .5px rgba(0,0,0,.04)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;background:var(--bg2);color:var(--ink);border-radius:var(--r-sm);padding:11px 15px;font-weight:600;font-size:14.5px;min-height:44px;text-decoration:none;white-space:nowrap}
+.btn.primary{background:var(--ink);color:var(--bg)}
+.btn.accent{background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:none;color:var(--muted)}
 .btn.danger{color:var(--warn)}
-.btn.big{width:100%;padding:14px;font-size:16px;margin-top:6px}
-.btn.sm{padding:7px 10px;font-size:13px;border-radius:9px}
+.btn.big{width:100%;padding:15px;font-size:16px;margin-top:8px;min-height:52px;border-radius:14px}
+.btn.sm{padding:7px 12px;font-size:13.5px;border-radius:10px;min-height:36px}
 .acts{display:flex;gap:8px;flex-wrap:wrap}
 .acts .btn{flex:1}
-.link{border:0;background:none;color:var(--ink);font-weight:600;padding:0;font-size:13px;text-decoration:underline;text-underline-offset:3px}
+.link{border:0;background:none;color:var(--ink);font-weight:600;padding:0;font-size:13px;text-decoration:underline;text-decoration-color:color-mix(in srgb,currentColor 35%,transparent);text-underline-offset:3px}
+/* switches */
+.tog input[type=checkbox],.orow input[type=checkbox]{-webkit-appearance:none;appearance:none;width:46px;height:28px;border-radius:14px;background:var(--track);position:relative;flex:none;margin:0;cursor:pointer;transition:background .2s}
+.tog input[type=checkbox]::before,.orow input[type=checkbox]::before{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s cubic-bezier(.3,.7,.4,1)}
+.tog input[type=checkbox]:checked,.orow input[type=checkbox]:checked{background:var(--accent)}
+.tog input[type=checkbox]:checked::before,.orow input[type=checkbox]:checked::before{transform:translateX(18px)}
+@media (prefers-color-scheme:dark){.tog input[type=checkbox]:checked::before,.orow input[type=checkbox]:checked::before{background:#121214}}
 /* blocks */
 .bh{display:flex;align-items:center;gap:10px;margin-bottom:4px}
-.badge{width:30px;height:30px;border-radius:9px;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-family:"Space Grotesk",system-ui,sans-serif;font-weight:700;flex:none}
+.badge{width:30px;height:30px;border-radius:10px;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-family:"Space Grotesk",system-ui,sans-serif;font-weight:700;flex:none}
 .bl{font-weight:700;font-size:16px;flex:1}
-.stepper{display:flex;align-items:center;border:1px solid var(--line);border-radius:999px;background:var(--bg)}
+.stepper{display:flex;align-items:center;border-radius:999px;background:var(--bg2)}
 .stepper button{width:32px;height:32px;border:0;background:none;font-size:18px;line-height:1;color:var(--ink)}
 .stepper span{min-width:62px;text-align:center;font-size:13px;font-weight:600}
-.icon{border:0;background:none;color:var(--muted);width:34px;height:34px;border-radius:8px;font-size:17px;flex:none}
+.icon{border:0;background:none;color:var(--muted);width:36px;height:36px;border-radius:10px;font-size:16px;flex:none;display:inline-grid;place-items:center;padding:0}
 .icon:hover{background:var(--bg2)}
 .icon.star.on{color:var(--gold)}
 .ex{border-top:1px solid var(--line);padding:10px 0 6px}
@@ -96,14 +117,14 @@ select.in{appearance:none;background-image:linear-gradient(45deg,transparent 50%
 .sets{display:grid;gap:5px;align-items:center;margin-left:22px}
 .sets .lab{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
 .sets .sh{font-size:10.5px;color:var(--muted);text-align:center;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
-.sets .in{padding:7px 2px;text-align:center;border-radius:8px}
-.addex{border:1.5px dashed var(--line);background:none;border-radius:10px;width:100%;padding:9px;color:var(--muted);font-weight:600;margin-top:8px}
+.sets .in{padding:8px 2px;text-align:center;border-radius:9px}
+.addex{border:1.5px dashed var(--track);background:none;border-radius:var(--r-sm);width:100%;padding:11px;color:var(--muted);font-weight:600;margin-top:8px}
 .tset{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:8px 0 6px}
 .tset label{font-size:11px;color:var(--muted);font-weight:600;display:block}
 .tset .in{margin-top:3px;padding:7px 4px;text-align:center}
 .tset.two{grid-template-columns:repeat(2,minmax(0,1fr))}
-.tog{display:flex;align-items:center;gap:10px;font-weight:600;margin:6px 0 8px}
-.tog input{width:20px;height:20px;accent-color:var(--accent);flex:none}
+.tog{display:flex;align-items:center;gap:12px;font-weight:500;padding:9px 0;margin:0;min-height:46px;cursor:pointer}
+.tog input{order:2;margin-left:auto !important}
 .target{display:flex;align-items:center;gap:10px;margin:4px 0 10px}
 .target .in{width:92px;font-family:"Space Grotesk",system-ui,sans-serif;font-size:24px;font-weight:700;text-align:center;padding:6px}
 .fitsum{background:var(--bg2);border-radius:10px;padding:9px 11px;font-size:13px;margin:8px 0}
@@ -119,20 +140,24 @@ select.in{appearance:none;background-image:linear-gradient(45deg,transparent 50%
 .search{display:flex;gap:8px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
 .fchips{display:flex;gap:6px;overflow-x:auto;padding:10px 0 2px;scrollbar-width:none}
-.fchips button,.cats button{flex:none;border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--muted)}
+.fchips button,.cats button{flex:none;border:0;background:var(--bg2);border-radius:999px;padding:7px 14px;font-size:13.5px;font-weight:600;color:var(--muted)}
 .fchips button.on,.cats button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-.fh{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;margin:16px 4px 6px}
-.plan{padding:12px 14px}
+.fh{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;margin:20px 4px 8px}
+.plan{padding:16px}
 .ptop{display:flex;align-items:flex-start;gap:6px}
 .pname{font-weight:700;font-size:16.5px;line-height:1.25}
 .pmeta{font-size:12.5px;color:var(--muted);margin-top:2px}
 .pex{font-size:13px;color:var(--muted);margin:6px 0 10px;line-height:1.45}
 .pacts{display:flex;gap:6px}
 .pacts .btn{flex:1;padding:8px 6px;font-size:13.5px}
-.pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--bg2);color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.pill{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--bg2);color:var(--muted);text-transform:uppercase;letter-spacing:.05em;vertical-align:1px}
 .pill.t{background:var(--ink);color:var(--bg)}
 .pill.r{background:var(--bg2);color:var(--ink)}
-.based{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin:-2px 0 10px}
+.based{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin:0 2px 10px;flex-wrap:wrap}
+.namerow{margin-bottom:10px}
+.datein{width:9.2em;flex:none;font-size:15px}
+.sets .in{background:var(--bg)}
+@media (prefers-color-scheme:dark){.sets .in{background:var(--bg2)}}
 .editbar{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 /* history */
 .wh{display:flex;align-items:flex-start;gap:10px;cursor:pointer}
@@ -146,27 +171,31 @@ table.pt{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:8px}
 table.pt td{padding:6px 4px;border-top:1px solid var(--line);vertical-align:top}
 table.pt td:first-child{white-space:nowrap;color:var(--muted)}
 /* library */
-.chip{display:inline-flex;align-items:center;gap:4px;background:var(--bg2);border-radius:999px;padding:5px 6px 5px 11px;font-size:13.5px}
+.chip{display:inline-flex;align-items:center;gap:2px;background:var(--bg2);border-radius:999px;padding:5px 5px 5px 12px;font-size:13.5px}
 .chip button{border:0;background:none;color:var(--muted);width:20px;height:20px;border-radius:50%;line-height:1;padding:0}
 .addrow{display:flex;gap:6px}
 /* sheet */
 #sheet{position:fixed;inset:0;z-index:40;display:none}
 #sheet.open{display:block}
-#sheet .bd{position:absolute;inset:0;background:rgba(0,0,0,.4)}
-#sheet .panel{position:absolute;left:0;right:0;bottom:0;max-width:720px;margin:0 auto;background:var(--card);border-radius:20px 20px 0 0;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 -10px 30px rgba(0,0,0,.2)}
-#sheet .ph{padding:14px 16px 8px;display:flex;align-items:center;gap:8px}
-#sheet .ph b{flex:1;font-family:"Space Grotesk",system-ui,sans-serif;font-size:17px}
-#sheet .pb{padding:0 16px 22px;overflow:auto}
+#sheet .bd{position:absolute;inset:0;background:rgba(0,0,0,.36);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);animation:fade .2s ease}
+#sheet .panel{position:absolute;left:0;right:0;bottom:0;max-width:720px;margin:0 auto;background:var(--card);border-radius:26px 26px 0 0;max-height:88vh;display:flex;flex-direction:column;box-shadow:0 -10px 40px rgba(0,0,0,.18);animation:rise .28s cubic-bezier(.2,.8,.3,1);padding-bottom:env(safe-area-inset-bottom)}
+#sheet .grab{width:38px;height:5px;border-radius:3px;background:var(--track);margin:8px auto 0;flex:none}
+#sheet .ph{padding:8px 12px 8px 20px;display:flex;align-items:center;gap:8px}
+#sheet .ph b{flex:1;font-family:"Space Grotesk",system-ui,sans-serif;font-size:19px;letter-spacing:-.01em}
+#sheet .ph .icon{background:var(--bg2);border-radius:50%;width:32px;height:32px;font-size:13px}
+#sheet .pb{padding:4px 20px 24px;overflow:auto}
+@keyframes rise{from{transform:translateY(40px);opacity:0}}
+@keyframes fade{from{opacity:0}}
 .plist button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:none;padding:12px 4px;font-size:15.5px}
 .plist h5{margin:14px 0 2px;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 .plist .custom{color:var(--ink);font-weight:700}
 .cats{display:flex;gap:6px;overflow-x:auto;padding:8px 0 2px;scrollbar-width:none}
 /* toast & rest pill */
-#toast{position:fixed;left:50%;bottom:150px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:60;max-width:90vw;text-align:center}
+#toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.18);font-weight:600;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:60;max-width:90vw;text-align:center}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-#restpill{position:fixed;right:14px;bottom:calc(74px + env(safe-area-inset-bottom));z-index:20;display:none}
-#restpill .rp{display:flex;align-items:center;gap:2px;background:var(--ink);color:var(--bg);border-radius:999px;padding:4px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
-#restpill button{border:0;background:none;color:inherit;font-weight:700;padding:9px 12px;border-radius:999px}
+#restpill{position:fixed;right:16px;bottom:calc(80px + env(safe-area-inset-bottom));z-index:20;display:none}
+#restpill .rp{display:flex;align-items:center;gap:2px;background:var(--ink);color:var(--bg);border-radius:999px;padding:4px;box-shadow:0 8px 24px rgba(0,0,0,.22)}
+#restpill button{border:0;background:none;color:inherit;font-weight:700;padding:10px 14px;border-radius:999px;display:flex;align-items:center;gap:6px}
 #restpill .run{background:var(--hi);color:var(--hi-ink)}
 #restpill .run .t{font-family:"Space Grotesk",system-ui,sans-serif;font-size:18px;min-width:52px}
 /* timer overlay */
@@ -203,11 +232,11 @@ table.pt td:first-child{white-space:nowrap;color:var(--muted)}
 .tdone .btn{border:0}
 .tdone .btn.w{background:var(--pfg);color:var(--pbg)}
 .tdone .btn.o{background:color-mix(in srgb,currentColor 12%,transparent);color:inherit}
-.empty{text-align:center;padding:26px 10px;color:var(--muted)}
+.empty{text-align:center;padding:34px 18px;color:var(--muted);line-height:1.5}
 /* length presets */
 .lens{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:2px 0 10px}
 .lens button.wide{grid-column:span 2}
-.lens button{min-width:0;border:1.5px solid var(--line);background:var(--bg);border-radius:12px;padding:8px 6px 7px;font-family:"Space Grotesk",system-ui,sans-serif;font-weight:700;font-size:19px;line-height:1.05;color:var(--ink)}
+.lens button{min-width:0;border:0;background:var(--bg2);border-radius:var(--r-sm);padding:8px 6px 7px;font-family:"Space Grotesk",system-ui,sans-serif;font-weight:700;font-size:19px;line-height:1.05;color:var(--ink)}
 .lens button small{display:block;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
 .lens button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .lens button.on small{color:inherit;opacity:.8}
@@ -219,10 +248,10 @@ table.pt td:first-child{white-space:nowrap;color:var(--muted)}
 .fillrow .btn{flex:none}
 .quick{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 0 12px;align-items:center;padding:1px}
 .quick .ql{font-size:11.5px;font-weight:700;color:var(--muted);flex:none;text-transform:uppercase;letter-spacing:.06em;margin-right:2px}
-.quick button{flex:none;border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:7px 12px;font-size:13.5px;font-weight:600;color:var(--ink)}
-.quick button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.quick button{flex:none;border:0;background:var(--card);box-shadow:inset 0 0 0 1px var(--line);border-radius:999px;padding:8px 14px;font-size:13.5px;font-weight:600;color:var(--ink)}
+.quick button.on{background:var(--ink);color:var(--bg);box-shadow:none}
 .clens{display:flex;gap:5px;flex-wrap:wrap;margin:0 0 10px}
-.clens button{border:1px solid var(--line);background:var(--bg);border-radius:9px;padding:6px 10px;font-size:13px;font-weight:700;font-family:"Space Grotesk",system-ui,sans-serif;color:var(--muted)}
+.clens button{border:0;background:var(--bg2);border-radius:9px;padding:6px 10px;font-size:13px;font-weight:700;font-family:"Space Grotesk",system-ui,sans-serif;color:var(--muted)}
 .clens button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 #startbar{position:fixed;left:0;right:0;bottom:calc(58px + env(safe-area-inset-bottom));z-index:20;display:none;padding:22px 12px 10px;background:linear-gradient(to bottom,transparent,var(--bg) 45%);pointer-events:none}
 #startbar .sbw{max-width:696px;margin:0 auto;display:flex;gap:8px;pointer-events:auto}
@@ -249,11 +278,13 @@ table.pt td:first-child{white-space:nowrap;color:var(--muted)}
 .dlr input::placeholder{color:#9a9a9f}
 .ring{cursor:pointer}
 .taphint{font-size:11.5px;opacity:.7;margin-top:-2px}
-nav.bnav{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--bg);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav.bnav{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--glass);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-top:1px solid var(--hair);padding-bottom:env(safe-area-inset-bottom)}
 nav.bnav .bw{display:flex;max-width:720px;margin:0 auto}
-nav.bnav button{flex:1;border:0;background:none;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0 9px;font-size:11px;font-weight:600}
+nav.bnav button{flex:1;border:0;background:none;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 0 8px;font-size:11px;font-weight:600;letter-spacing:.01em}
+nav.bnav button svg{width:23px;height:23px;padding:0;transition:transform .2s}
 nav.bnav button.on{color:var(--ink)}
-.gearb{display:grid;place-items:center;width:44px;height:44px}
+nav.bnav button:active{transform:none}
+nav.bnav button:active svg{transform:scale(.88)}
 /* modes */
 .mode-workout{--mc:#d4ff3a;--mc-ink:#141416}
 .mode-focus{--mc:#9ee7ff;--mc-ink:#141416}
@@ -264,24 +295,29 @@ nav.bnav button.on{color:var(--ink)}
 @media (prefers-color-scheme:dark){.tday{--ms-bg:var(--mc);--ms-fg:var(--mc-ink)}.tday.mode-meditate{--ms-bg:#e8d5b5;--ms-fg:#1b1814}.modebar button.mode-meditate.on{background:#e8d5b5;color:#1b1814}}
 .tday .bigstart{background:var(--ms-bg);color:var(--ms-fg)}
 .tday .bigstart:disabled{background:var(--bg2);color:var(--muted)}
-.tday .pills button.on{background:var(--ms-bg);border-color:var(--ms-bg);color:var(--ms-fg)}
-.modebar{display:flex;gap:2px;background:var(--bg2);border-radius:12px;padding:3px;margin:0 0 4px}
-.modebar button{flex:1;border:0;background:none;border-radius:9px;padding:10px 0;font-size:13px;font-weight:600;color:var(--muted);min-width:0}
+.tday .pills button.on{background:var(--ms-bg);box-shadow:none;color:var(--ms-fg)}
+.modebar{display:flex;gap:2px;background:var(--bg2);border-radius:14px;padding:3px;margin:0 0 4px}
+.modebar button{flex:1;border:0;background:none;border-radius:11px;padding:10px 0;font-size:13.5px;font-weight:600;color:var(--muted);min-width:0}
+.modebar button:active{transform:none}
+.wstyle{display:flex;justify-content:center;gap:4px;margin:10px 0 2px}
+.wstyle button{border:0;background:none;color:var(--muted);font-size:13px;font-weight:600;padding:6px 12px;border-radius:999px}
+.wstyle button.on{color:var(--ink);background:var(--card);box-shadow:inset 0 0 0 1px var(--line)}
 .modebar button.on{background:var(--mc);color:var(--mc-ink)}
 .bignum{font-family:"Space Grotesk",system-ui,sans-serif;font-weight:700;font-size:104px;line-height:1;letter-spacing:-.04em;text-align:center;min-width:1.4ch;font-variant-numeric:tabular-nums}
 .bignum.time{font-size:92px;min-width:3.4ch}
-.ocard{padding:2px 16px;margin-top:16px;border-radius:18px}
-.orow{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;padding:10px 0;border-bottom:1px solid var(--line);text-align:left;font-size:14.5px;font-weight:600;min-height:50px;color:var(--ink);margin:0}
+.ocard{padding:2px 16px;margin-top:16px}
+.orow{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;padding:11px 0;border-bottom:1px solid var(--line);text-align:left;font-size:15px;font-weight:500;min-height:52px;color:var(--ink);margin:0;cursor:pointer}
+button.orow:active{transform:none;opacity:.6}
 .orow:last-child{border-bottom:0}
 .orow .ov{color:var(--muted);font-weight:500;font-size:14px;text-align:right}
 .orow .chev{color:var(--muted);display:grid;flex:none}
-.orow input[type=checkbox]{width:22px;height:22px;accent-color:var(--ink);flex:none}
+
 .orow .stepper span{min-width:70px}
 .cyc{display:flex;gap:3px;margin:18px 14px 0}
 .cyc i{display:block;height:8px;border-radius:4px;background:var(--ink)}
 .cyc i.b{background:var(--line)}
 .cycmeta{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--muted);margin:8px 14px 0}
-.mnote{background:var(--bg2);border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.45;margin-top:12px}
+.mnote{background:var(--bg2);border-radius:var(--r-sm);padding:10px 12px;font-size:12.5px;line-height:1.45;margin-top:12px}
 .exact{display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;color:var(--muted);margin-top:10px}
 .exact .in{width:auto;padding:6px 8px;font-size:15px}
 .ampm{display:flex;justify-content:center;margin-top:6px}
@@ -341,36 +377,36 @@ nav.bnav button.on{color:var(--ink)}
 .hmeta{font-size:13px;color:var(--muted);text-align:right;flex:none}
 .hdot{width:11px;height:11px;border-radius:50%;flex:none;margin-top:5px;box-shadow:0 0 0 1px color-mix(in srgb,var(--ink) 18%,transparent)}
 .hrow .hb{margin-top:0;padding-bottom:12px}
-.shh{margin:18px 0 2px;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+.shh{margin:22px 4px 8px;font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700}
+.shh:first-of-type{margin-top:4px}
+.empty .etitle{font-family:"Space Grotesk",system-ui,sans-serif;font-weight:700;font-size:18px;color:var(--ink);margin-bottom:6px}
 .sopt{display:flex;align-items:center;gap:10px;width:100%;border:0;border-bottom:1px solid var(--line);background:none;padding:13px 2px;font-size:15.5px;text-align:left;color:var(--ink);min-height:48px}
 .sopt .ck{width:20px;display:grid;place-items:center;flex:none}
 .sopt.on{font-weight:700}
 .srow{display:flex;align-items:center;gap:4px}
 .srow .sopt{flex:1}
 /* layout A: today */
-.tday{padding:4px 6px 0}
-.tdhead{display:flex;align-items:flex-end;gap:10px;margin-bottom:12px}
-.tdtitle{font-family:"Space Grotesk",system-ui,sans-serif;font-weight:700;font-size:30px;line-height:1.1;letter-spacing:-.01em}
+.tday{padding:0}
 .seg.mini{padding:2px;border-radius:10px}
 .seg.mini button{padding:6px 10px;font-size:12.5px;border-radius:8px}
 .lenbig{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:14px}
-.rb{width:50px;height:50px;border-radius:50%;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;flex:none;color:var(--ink)}
+.rb{width:52px;height:52px;border-radius:50%;border:0;background:var(--card);box-shadow:inset 0 0 0 1px var(--line);display:grid;place-items:center;flex:none;color:var(--ink)}
 .lenin{width:2.6ch;border:0;background:none;color:var(--ink);font-family:"Space Grotesk",system-ui,sans-serif;font-weight:700;font-size:112px;line-height:1;letter-spacing:-.04em;text-align:center;padding:0;outline:none;font-variant-numeric:tabular-nums;border-radius:14px}
 .lenin:focus{background:var(--bg2)}
 .lenunit{text-align:center;color:var(--muted);font-size:14px;margin-top:2px}
 .pills{display:flex;justify-content:center;gap:6px;margin:16px 0 4px;flex-wrap:wrap}
-.pills button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:7px 13px;font-family:"Space Grotesk",system-ui,sans-serif;font-weight:700;font-size:14px;min-width:44px}
+.pills button{border:0;background:var(--card);box-shadow:inset 0 0 0 1px var(--line);border-radius:999px;padding:8px 14px;font-family:"Space Grotesk",system-ui,sans-serif;font-weight:700;font-size:14px;min-width:44px}
 .pills button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .fitline{text-align:center;font-size:12.5px;color:var(--muted);margin:10px 8px 0;line-height:1.5}
 .fitline b{color:var(--ink);font-family:"Space Grotesk",system-ui,sans-serif}
 .fitline .acts{justify-content:center}
 .fitline .acts .btn{flex:none}
-.excard{margin-top:20px;padding:10px 14px 6px;border-radius:18px}
+.excard{margin-top:20px;padding:8px 16px 4px}
 .exhead{display:flex;align-items:center;gap:4px}
 .tbtn{display:flex;align-items:center;gap:5px;border:0;background:none;font-size:13px;font-weight:600;padding:8px;min-height:40px}
 .exline{display:flex;gap:12px;width:100%;text-align:left;border:0;background:none;padding:11px 0;border-top:1px solid var(--line);font-size:15px;line-height:1.45}
 .exline b{font-family:"Space Grotesk",system-ui,sans-serif;width:14px;flex:none}
-.bigstart{width:100%;display:flex;align-items:center;gap:10px;margin-top:16px;padding:18px 20px;border-radius:16px;background:var(--accent);color:var(--accent-ink);border:0;font-size:17px;font-weight:600}
+.bigstart{width:100%;display:flex;align-items:center;gap:10px;margin-top:18px;padding:19px 22px;border-radius:18px;background:var(--accent);color:var(--accent-ink);border:0;font-size:17px;font-weight:600}
 .bigstart:disabled{background:var(--bg2);color:var(--muted);opacity:1}
 .bigstart .num{font-family:"Space Grotesk",system-ui,sans-serif;font-weight:700}
 .sublinks{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;margin:14px 0 4px}
@@ -401,16 +437,14 @@ nav.bnav button.on{color:var(--ink)}
 </style>
 </head>
 <body>
-<header><div class="hwrap">
-  <div class="brand"><h1>Tempo</h1><div style="display:flex;align-items:center;gap:4px"><div class="sync" id="sync">Loading…</div><button class="icon gearb" data-act="tab" data-tab="settings" aria-label="Settings and exercise library" id="gearb"></button></div></div>
-</div></header>
 <main id="main"></main>
 <nav class="bnav" id="tabs"><div class="bw">
   <button data-act="tab" data-tab="today" id="nb-today">Today</button>
   <button data-act="tab" data-tab="plans" id="nb-plans">Workouts</button>
   <button data-act="tab" data-tab="history" id="nb-history">History</button>
+  <button data-act="tab" data-tab="settings" id="nb-settings">Settings</button>
 </div></nav>
-<div id="sheet"><div class="bd" data-act="close-sheet"></div><div class="panel"><div class="ph"><b id="sheet-t"></b><button class="icon" data-act="close-sheet" aria-label="Close">✕</button></div><div class="pb" id="sheet-b"></div></div></div>
+<div id="sheet"><div class="bd" data-act="close-sheet"></div><div class="panel"><div class="grab" aria-hidden="true"></div><div class="ph"><b id="sheet-t"></b><button class="icon" data-act="close-sheet" aria-label="Close">✕</button></div><div class="pb" id="sheet-b"></div></div></div>
 <div id="timer"></div>
 <div id="alarm" role="dialog" aria-label="Alarm"></div>
 <div id="restpill"></div>
@@ -455,7 +489,15 @@ const IC = {
   list: svgI('<path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><circle cx="4.5" cy="6" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="18" r="1" fill="currentColor"/>', 22),
   clock: svgI('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>', 22),
   chev: svgI('<path d="M9 6l6 6-6 6"/>', 16),
-  check: svgI('<path d="M5 12.5l4.5 4.5L19 7.5"/>')
+  check: svgI('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
+  ps: svgI('<path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/>', 15),
+  cs: svgI('<path d="M5 12.5l4.5 4.5L19 7.5"/>', 16),
+  plusS: svgI('<path d="M12 5v14"/><path d="M5 12h14"/>', 16),
+  trash: svgI('<path d="M4 7h16"/><path d="M18 7v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7"/><path d="M9 7V5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 5v2"/>', 17),
+  timer: svgI('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M10 2h4"/>', 16),
+  cloudOk: svgI('<path d="M7 18.5a4.5 4.5 0 0 1-.9-8.9 6 6 0 0 1 11.6 1.4A3.75 3.75 0 0 1 17.25 18.5z"/><path d="M9.5 13.8l1.8 1.8 3.4-3.4"/>', 18),
+  cloudSync: svgI('<path d="M7 18.5a4.5 4.5 0 0 1-.9-8.9 6 6 0 0 1 11.6 1.4A3.75 3.75 0 0 1 17.25 18.5z"/>', 18),
+  cloudOff: svgI('<path d="M7 18.5a4.5 4.5 0 0 1-.9-8.9 6 6 0 0 1 11.6 1.4A3.75 3.75 0 0 1 17.25 18.5z"/><path d="M4 4l16 16"/>', 18)
 };
 const DEF = { unit: "lb", rounds: 3, work: 45, restEx: 15, restRound: 60, restBlock: 90, ready: 10, restsOn: true, targetMin: 30, balance: "even", autoFit: true, cues: true, count321: false,
   focusMin: 25, shortBreak: 5, longBreak: 15, longEvery: 4, focusRounds: 4, autoBreaks: true, focusTask: "",
@@ -618,7 +660,7 @@ function fmtSets(sets, mode, unit) {
 
 /* ---------- persistence ---------- */
 const queue = {};
-function setSync(t, bad) { const el = $("#sync"); if (t === "Saved ✓" || t === "Saving…" || t === "Editing…") t = "On this device"; el.textContent = t; el.classList.toggle("bad", !!bad); }
+function setSync() {} // save errors are reported by handleErr; sync status lives in syncUI()
 function writeDoc(path, data) {
   if (!S.db) { setSync("Not saving", true); return; }
   const q = queue[path] || (queue[path] = { busy: false, next: undefined });
@@ -656,27 +698,147 @@ function touch(o) { o = o || cur(); applyFit(o); if (isPlan(o)) saveEditSoon(); 
 
 /* ---------- init ---------- */
 /* ---------- on-device storage (same API the app used inside Claude) ---------- */
-const DB_KEY = "tempo.db.v1";
+/* Every synced record carries a change time (meta[key].t) and deletes leave a tombstone,
+   so two devices can be merged record by record: the newest change to each record wins. */
+const DB_KEY = "tempo.db.v1", META_KEY = "tempo.db.meta";
+const syncable = k => !k.startsWith("drafts/");
+let lastStamp = 0;
+const stampNow = () => (lastStamp = Math.max(Date.now(), lastStamp + 1));
 function localDB() {
-  let store = {};
-  try { store = JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch { store = {}; }
+  let store = {}, meta = {};
+  const load = () => { try { store = JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch { store = {}; } meta = lsGet(META_KEY) || {}; };
+  load();
+  // records saved before sync existed get a tiny timestamp, so they still beat an untouched starter library (t = 0)
+  for (const k in store) if (syncable(k) && !meta[k]) meta[k] = { t: 1 };
   const subs = new Set(), cl = o => JSON.parse(JSON.stringify(o));
-  const save = () => { try { localStorage.setItem(DB_KEY, JSON.stringify(store)); } catch (e) { const er = new Error("Storage is full"); er.code = "quota_exceeded"; throw er; } };
+  const save = () => { try { localStorage.setItem(DB_KEY, JSON.stringify(store)); localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch (e) { const er = new Error("Storage is full"); er.code = "quota_exceeded"; throw er; } };
   const notify = () => setTimeout(() => subs.forEach(f => { try { f(); } catch {} }), 0);
+  const api = { onChange: null };
+  const stamp = (p, del) => { if (!syncable(p)) return; meta[p] = del ? { t: stampNow(), del: 1 } : { t: stampNow() }; if (api.onChange) api.onChange(); };
   const snapDoc = p => ({ exists: p in store, data: () => cl(store[p]) });
   const inColl = n => Object.keys(store).filter(k => k.startsWith(n + "/") && k.split("/").length === 2);
   const snapColl = n => ({ metadata: { fromCache: false }, docs: inColl(n).map(k => ({ id: k.slice(n.length + 1), data: () => cl(store[k]) })) });
   const doc = p => ({
     onSnapshot(cb) { const f = () => cb(snapDoc(p)); subs.add(f); f(); return () => subs.delete(f); },
     async get() { return snapDoc(p); },
-    async set(d) { store[p] = cl(d); save(); notify(); },
-    async delete() { delete store[p]; save(); notify(); }
+    async set(d) { store[p] = cl(d); stamp(p); save(); notify(); },
+    async delete() { delete store[p]; stamp(p, true); save(); notify(); }
   });
-  const collection = n => { const api = { orderBy: () => api, limit: () => api,
+  const collection = n => { const c = { orderBy: () => c, limit: () => c,
     onSnapshot(cb) { const f = () => cb(snapColl(n)); subs.add(f); f(); return () => subs.delete(f); },
-    async add(d) { const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6); store[n + "/" + id] = cl(d); save(); notify(); return { id }; } }; return api; };
-  window.addEventListener("storage", e => { if (e.key === DB_KEY) { try { store = JSON.parse(e.newValue) || {}; } catch {} notify(); } });
-  return { doc, collection, exportAll: () => cl(store), importAll: o => { store = cl(o); save(); notify(); } };
+    async add(d) { const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6); store[n + "/" + id] = cl(d); stamp(n + "/" + id); save(); notify(); return { id }; } }; return c; };
+  window.addEventListener("storage", e => { if (e.key === DB_KEY || e.key === META_KEY) { load(); notify(); } });
+  return Object.assign(api, { doc, collection,
+    // a starter record that any real edit (on this or another device) should replace
+    seed(p, d) { store[p] = cl(d); meta[p] = { t: 0 }; save(); notify(); },
+    exportAll: () => cl(store),
+    importAll(o) { const old = store; store = cl(o); for (const k in old) if (!(k in store)) stamp(k, true); for (const k in store) stamp(k); save(); notify(); },
+    syncSnapshot() {
+      const out = {};
+      for (const k of new Set([...Object.keys(store), ...Object.keys(meta)])) {
+        if (!syncable(k)) continue; const m = meta[k] || { t: 0 };
+        out[k] = k in store && !m.del ? { t: m.t, d: cl(store[k]) } : { t: m.t, del: 1 };
+      }
+      return out;
+    },
+    applyRemote(entries) {
+      for (const k in entries) { const e = entries[k]; if (!syncable(k)) continue;
+        if (e.del) { delete store[k]; meta[k] = { t: e.t, del: 1 }; } else { store[k] = cl(e.d); meta[k] = { t: e.t }; } }
+      save(); notify();
+    },
+    pruneTombstones(before) { for (const k in meta) if (meta[k].del && meta[k].t < before) delete meta[k]; save(); }
+  });
+}
+/* Merge two record sets {key: {t, d} | {t, del}}. Newest change wins; on a tie the remote copy wins. */
+function mergeDocs(local, remote) {
+  const out = {}, toLocal = {}; let remoteDirty = false;
+  const same = (a, b) => !!a.del === !!b.del && (a.del || JSON.stringify(a.d) === JSON.stringify(b.d));
+  for (const k of new Set([...Object.keys(local), ...Object.keys(remote)])) {
+    const L = local[k], R = remote[k];
+    if (!R) { out[k] = L; remoteDirty = true; }
+    else if (!L) { out[k] = R; toLocal[k] = R; }
+    else if ((L.t || 0) > (R.t || 0)) { out[k] = L; if (!same(L, R)) remoteDirty = true; }
+    else { out[k] = R; if (!same(L, R)) toLocal[k] = R; }
+  }
+  return { out, toLocal, remoteDirty };
+}
+
+/* ---------- sync through a private GitHub Gist ---------- */
+const GIST_FILE = "tempo-sync.json", TOMBSTONE_DAYS = 180;
+const Sync = {
+  cfg: lsGet("tempo.sync"), // { token, gistId, login, last }
+  state: "off", err: "", busy: false, again: false, timer: null,
+  api: lsGet("tempo.sync.api") || "https://api.github.com",
+  on() { return !!(this.cfg && this.cfg.token && this.cfg.gistId); },
+  save() { lsSet("tempo.sync", this.cfg); },
+  async gh(path, opts) {
+    let r;
+    try {
+      r = await fetch(this.api + path, Object.assign({ cache: "no-store" }, opts, {
+        headers: Object.assign({ Accept: "application/vnd.github+json", Authorization: "Bearer " + (opts && opts.token || this.cfg.token) }, opts && opts.body ? { "Content-Type": "application/json" } : {}) }));
+    } catch { const e = new Error("Can't reach GitHub"); e.code = "offline"; throw e; }
+    if (!r.ok) { const e = new Error(r.status === 401 ? "GitHub didn't accept the token" : r.status === 404 ? "Not found" : "GitHub error " + r.status); e.code = r.status; throw e; }
+    return r.status === 204 ? null : r.json();
+  },
+  payload(docs) { return JSON.stringify({ app: APP_NAME, format: 1, updatedAt: new Date().toISOString(), docs }); },
+  async connect(token) {
+    token = String(token || "").trim(); if (!token) throw new Error("Paste your token first");
+    const user = await this.gh("/user", { token });
+    let gist = null;
+    for (let page = 1; page <= 10 && !gist; page++) {
+      const list = await this.gh(`/gists?per_page=100&page=${page}`, { token });
+      gist = list.find(g => g.files && g.files[GIST_FILE]) || null;
+      if (list.length < 100) break;
+    }
+    if (!gist) gist = await this.gh("/gists", { token, method: "POST", body: JSON.stringify({ description: "Tempo sync data (keep this private)", public: false, files: { [GIST_FILE]: { content: this.payload({}) } } }) });
+    this.cfg = { token, gistId: gist.id, login: user.login, last: null }; this.save();
+    await this.now();
+    return !!gist;
+  },
+  disconnect() { clearTimeout(this.timer); this.cfg = null; this.save(); this.state = "off"; this.err = ""; syncUI(); },
+  soon(ms) { if (!this.on()) return; this.pending = true; clearTimeout(this.timer); this.timer = setTimeout(() => this.now(), ms ?? 2500); },
+  async now() {
+    if (!this.on() || !S.db) return;
+    if (this.busy) { this.again = true; return; }
+    clearTimeout(this.timer); this.pending = false; this.busy = true; this.state = "syncing"; syncUI();
+    try {
+      let g;
+      try { g = await this.gh("/gists/" + this.cfg.gistId); }
+      catch (e) { if (e.code !== 404) throw e; // the gist was deleted: start a new one from this device
+        g = await this.gh("/gists", { method: "POST", body: JSON.stringify({ description: "Tempo sync data (keep this private)", public: false, files: { [GIST_FILE]: { content: this.payload({}) } } }) });
+        this.cfg.gistId = g.id; this.save(); }
+      const f = g.files && g.files[GIST_FILE];
+      let remote = {};
+      if (f) { let txt = f.content;
+        if (f.truncated) { const r = await fetch(f.raw_url, { cache: "no-store" }); txt = await r.text(); }
+        try { remote = (JSON.parse(txt || "{}").docs) || {}; } catch { remote = {}; } }
+      const { out, toLocal, remoteDirty } = mergeDocs(S.db.syncSnapshot(), remote);
+      if (Object.keys(toLocal).length) S.db.applyRemote(toLocal);
+      const cut = Date.now() - TOMBSTONE_DAYS * 864e5;
+      for (const k in out) if (out[k].del && out[k].t < cut) delete out[k];
+      if (remoteDirty || !f) await this.gh("/gists/" + this.cfg.gistId, { method: "PATCH", body: JSON.stringify({ files: { [GIST_FILE]: { content: this.payload(out) } } }) });
+      S.db.pruneTombstones(cut);
+      this.cfg.last = Date.now(); this.save(); this.state = "ok"; this.err = "";
+    } catch (e) {
+      this.state = e.code === "offline" ? "offline" : "error"; this.err = e.message || "Sync failed";
+    } finally {
+      this.busy = false; syncUI();
+      if (this.again) { this.again = false; this.soon(500); }
+    }
+  }
+};
+const agoTxt = t => { if (!t) return "not yet"; const s = (Date.now() - t) / 1000; return s < 45 ? "just now" : s < 3600 ? Math.round(s / 60) + " min ago" : s < 86400 ? Math.round(s / 3600) + " h ago" : fmtDate(new Date(t).toISOString().slice(0, 10)); };
+function syncInfo() {
+  if (!Sync.on()) return { cls: "off", icon: "cloudOff", text: "Sync is off" };
+  if (Sync.state === "syncing") return { cls: "busy", icon: "cloudSync", text: "Syncing…" };
+  if (Sync.state === "offline") return { cls: "warn", icon: "cloudOff", text: "Offline — will sync when you're back online" };
+  if (Sync.state === "error") return { cls: "bad", icon: "cloudOff", text: Sync.err || "Sync failed" };
+  return { cls: "ok", icon: "cloudOk", text: "Synced " + agoTxt(Sync.cfg.last) };
+}
+function syncUI() {
+  const i = syncInfo();
+  document.querySelectorAll("[data-syncdot]").forEach(n => { n.classList.remove("ok", "off", "busy", "warn", "bad"); n.classList.add(i.cls); n.innerHTML = IC[i.icon]; n.title = i.text; n.setAttribute("aria-label", i.text); });
+  const st = $("#sync-status"); if (st) { st.textContent = i.text; st.className = "small " + (i.cls === "bad" ? "warn" : "muted"); }
 }
 const STARTER_LIBRARY = { categories: [
   { name: "Core", exercises: ["Ab wheel", "Bench leg raises", "Hanging leg raises", "Hanging running knee tucks", "Mountain climbers", "Plank", "Plate abs", "Plate v ups", "Swoops", "Vacuum", "Youtube core workout 6-10mins"] },
@@ -692,7 +854,8 @@ async function init() {
   S.draft = normDraft(lsGet("wt.draft")) || blankDraft();
   const db = localDB();
   S.db = db; S.dbState = "on";
-  if (!(await db.doc("library/main").get()).exists && !lsGet("tempo.seeded")) { await db.doc("library/main").set(STARTER_LIBRARY); lsSet("tempo.seeded", true); }
+  if (!(await db.doc("library/main").get()).exists && !lsGet("tempo.seeded")) { db.seed("library/main", STARTER_LIBRARY); lsSet("tempo.seeded", true); }
+  db.onChange = () => Sync.soon();
   db.doc("library/main").onSnapshot(s => { S.library = s.exists ? s.data() : null; S.loaded.lib = true; softRender(); });
   db.doc("settings/main").onSnapshot(s => { if (s.exists) S.settings = clone(s.data()); softRender(); });
   db.collection("templates").onSnapshot(q => {
@@ -703,7 +866,9 @@ async function init() {
     S.workouts = q.docs.map(d => Object.assign({ id: d.id }, d.data())).sort((a, b) => String(b.date).localeCompare(String(a.date)) || (b.createdAt || 0) - (a.createdAt || 0));
     rebuildIndex(); S.loaded.wk = true; softRender();
   });
-  setSync("On this device");
+  if (Sync.on()) Sync.now();
+  setInterval(() => { if (document.visibilityState === "visible") { if (Sync.on() && Date.now() - (Sync.cfg.last || 0) > 9e4) Sync.now(); else syncUI(); } }, 3e4);
+  window.addEventListener("online", () => Sync.now());
   SDB.all().then(list => { S.sounds = (list || []).sort((a, b) => (a.added || 0) - (b.added || 0)).map(x => ({ id: x.id, name: x.name })); softRender(); }).catch(() => {});
   initAlarm();
   render();
@@ -723,7 +888,7 @@ function render() {
   const v = { today: viewTodayAny, compose: () => viewBuilder(S.draft, { compose: true }), edit: () => viewBuilder(S.edit.obj), plans: viewPlans, history: viewHistory, settings: () => viewSettings() + viewLibrary() }[S.tab] || (() => viewBuilder(S.draft));
   $("#main").innerHTML = v();
   if (k) { const n = document.querySelector(`[data-k="${CSS.escape(k)}"]`); if (n) { n.focus({ preventScroll: true }); try { if (ss != null) n.setSelectionRange(ss, se); } catch {} } }
-  renderRest(); renderBar();
+  renderRest(); renderBar(); syncUI();
 }
 function srcOptions() {
   const tpls = S.templates, folders = folderList(), star = tpls.filter(t => t.starred);
@@ -794,15 +959,14 @@ function viewBuilder(o, opt) {
   } else {
     const base = o.planId ? tplById(o.planId) : null, q = quickList();
     if (compose) h += `<div class="editbar"><button class="btn sm" data-act="tab" data-tab="today">← Done</button><span class="grow small muted" style="text-align:right">Changes save automatically</span></div>`;
-    h += `<div class="card">${compose ? `<div class="ttl">Edit today's workout</div>` : ""}`;
     if (q.items.length && !compose) h += `<div class="quick"><span class="ql">${q.label}</span>${q.items.map(t => `<button data-act="quick" data-id="${esc(t.id)}" class="${o.planId === t.id ? "on" : ""}">${esc(t.name)}</button>`).join("")}</div>`;
-    h += `<div class="row2">
-        <label class="fld" style="width:42%"><span>Date</span><input class="in" type="date" data-bind="date" data-k="date" value="${esc(o.date)}"></label>
-        <label class="fld grow"><span>Workout name</span><input class="in" data-bind="title" data-k="title" placeholder="e.g. Glutes + Pull" value="${esc(o.title)}"></label>
+    h += `<div class="card">${compose ? `<div class="ttl">Edit today's workout</div>` : ""}
+      <div class="row2 namerow">
+        <input class="in grow" data-bind="title" data-k="title" placeholder="Workout name" aria-label="Workout name" value="${esc(o.title)}">
+        <input class="in datein" type="date" data-bind="date" data-k="date" value="${esc(o.date)}" aria-label="Date">
       </div>
-      ${base ? `<div class="based">From saved workout <b style="color:var(--ink)">${esc(base.name)}</b><button class="link" data-act="edit-t" data-id="${esc(base.id)}">Edit it</button></div>` : ""}
-      <label class="fld"><span>Start from</span><select class="in" data-change="src">${srcOptions()}</select></label>
-
+      ${base ? `<div class="based">From <b style="color:var(--ink)">${esc(base.name)}</b><button class="link" data-act="edit-t" data-id="${esc(base.id)}">Edit saved workout</button></div>` : ""}
+      <select class="in" data-change="src" aria-label="Start from">${srcOptions()}</select>
     </div>`;
   }
   if (timer) {
@@ -833,7 +997,7 @@ function viewBuilder(o, opt) {
     h += `<div class="card">
       <div class="bh"><div class="badge">${L}</div><div class="bl">Superset ${L}</div>
         <div class="stepper"><button data-act="rounds" data-b="${bi}" data-d="-1" aria-label="Fewer rounds">−</button><span>${R} round${R > 1 ? "s" : ""}</span><button data-act="rounds" data-b="${bi}" data-d="1" aria-label="More rounds">+</button></div>
-        <button class="icon" data-act="rm-block" data-b="${bi}" aria-label="Remove superset">🗑</button></div>`;
+        <button class="icon" data-act="rm-block" data-b="${bi}" aria-label="Remove superset">${IC.trash}</button></div>`;
     if (timer && fit) h += `<div class="bsum" id="bs${bi}">${blockSum(b, o)}</div>`;
     else if (timer) {
       h += `<div class="tset">
@@ -872,14 +1036,14 @@ function viewBuilder(o, opt) {
   });
   h += `<button class="addex" style="margin:0 0 12px;background:var(--card)" data-act="add-block">+ Add superset</button>`;
   if (plan) {
-    h += `<div class="card"><button class="btn ${timer ? "" : "accent"} big" data-act="use-edit">${timer ? "Load on Today without starting" : "▶ Use this workout today"}</button>
+    h += `<div class="card"><button class="btn ${timer ? "" : "accent"} big" data-act="use-edit">${timer ? "Load on Today without starting" : IC.ps + "Use this workout today"}</button>
       <div class="acts" style="margin-top:8px"><button class="btn" data-act="dup-t" data-id="${esc(S.edit.id)}">Duplicate</button><button class="btn danger" data-act="del-t" data-id="${esc(S.edit.id)}">Delete</button></div></div>`;
   } else {
     h += `<div class="card">
       ${timer && !showGrid ? `<div class="small muted" style="margin-bottom:10px">You'll enter weights when the timer finishes. <button class="link" data-act="show-log">Enter them now</button></div>` : ""}
       <label class="fld"><span>Notes</span><textarea class="in" rows="2" data-bind="notes" data-k="notes" placeholder="How did it feel?">${esc(o.notes)}</textarea></label>
       <div class="acts"><button class="btn" data-act="save-tpl">Save as workout</button><button class="btn ghost" data-act="clear">Clear</button></div>
-      <button class="btn primary big" data-act="finish">✓ Finish & log workout</button>
+      <button class="btn primary big" data-act="finish">${IC.cs}Finish & log workout</button>
     </div>`;
   }
   return h;
@@ -914,11 +1078,13 @@ function viewToday() {
   return h + `</div>`;
 }
 
+const syncDot = () => Sync.on() ? `<button class="syncdot" data-syncdot data-act="tab" data-tab="settings"></button>` : "";
+const pageHead = (title, eyebrow, right) => `<div class="phead"><div class="grow">${eyebrow ? `<div class="eyebrow">${eyebrow}</div>` : ""}<h1 class="ptitle">${title}</h1></div>${right || ""}${syncDot()}</div>`;
 function todayHead(title) {
   const wk = S.mode === "workout", reps = S.draft.mode === "reps";
-  return `<div class="tdhead"><div class="grow"><div class="small muted" style="font-weight:600">${esc(fmtDate(todayStr(), true))}</div><div class="tdtitle">${esc(title || "Today")}</div></div>
-    ${wk ? `<div class="seg mini" role="group" aria-label="Workout style"><button data-act="mode" data-m="timer" class="${reps ? "" : "on"}">Timer</button><button data-act="mode" data-m="reps" class="${reps ? "on" : ""}">Reps</button></div>` : ""}</div>
-    <div class="modebar" role="group" aria-label="Timer type">${MODES.map(m => `<button data-act="setmode" data-m="${m.id}" class="mode-${m.id} ${S.mode === m.id ? "on" : ""}">${m.label}</button>`).join("")}</div>`;
+  return pageHead(esc(title || "Today"), esc(fmtDate(todayStr(), true))) +
+    `<div class="modebar" role="group" aria-label="Timer type">${MODES.map(m => `<button data-act="setmode" data-m="${m.id}" class="mode-${m.id} ${S.mode === m.id ? "on" : ""}">${m.label}</button>`).join("")}</div>
+    ${wk ? `<div class="wstyle" role="group" aria-label="Workout style"><button data-act="mode" data-m="timer" class="${reps ? "" : "on"}">Timed circuit</button><button data-act="mode" data-m="reps" class="${reps ? "on" : ""}">Sets & reps</button></div>` : ""}`;
 }
 function viewTodayAny() {
   if (S.mode === "focus") return viewFocus();
@@ -979,12 +1145,12 @@ function renderBar() {
     if (S.tab === "compose" && S.draft.mode === "timer") {
       const tot = totalAll(S.draft), r = resumeOK(S.draft);
       if (!tot) h = `<button class="btn big accent" disabled>Add exercises to start</button>`;
-      else if (r) h = `<button class="btn big accent" data-act="start">▶ Resume · <span class="num">${fmt(r.left)}</span> left</button><button class="btn sbx" data-act="restart">↺ Restart</button>`;
-      else if (S.draft.durationSec) h = `<button class="btn big primary" data-act="finish">✓ Log workout</button><button class="btn sbx" data-act="restart">▶ Again</button>`;
-      else h = `<button class="btn big accent" data-act="start">▶ Start · <span class="num">${fmt(tot)}</span></button>`;
+      else if (r) h = `<button class="btn big accent" data-act="start">${IC.ps}Resume · <span class="num">${fmt(r.left)}</span> left</button><button class="btn sbx" data-act="restart">Restart</button>`;
+      else if (S.draft.durationSec) h = `<button class="btn big primary" data-act="finish">${IC.cs}Log workout</button><button class="btn sbx" data-act="restart">Again</button>`;
+      else h = `<button class="btn big accent" data-act="start">${IC.ps}Start · <span class="num">${fmt(tot)}</span></button>`;
     } else if (S.tab === "edit" && S.edit && S.edit.obj.mode === "timer") {
       const tot = totalAll(S.edit.obj);
-      h = tot ? `<button class="btn big accent" data-act="start-edit">▶ Start now · <span class="num">${fmt(tot)}</span></button>` : `<button class="btn big accent" disabled>Add exercises to start</button>`;
+      h = tot ? `<button class="btn big accent" data-act="start-edit">${IC.ps}Start now · <span class="num">${fmt(tot)}</span></button>` : `<button class="btn big accent" disabled>Add exercises to start</button>`;
     }
   }
   el.style.display = h ? "block" : "none"; el.innerHTML = h ? `<div class="sbw">${h}</div>` : "";
@@ -1006,8 +1172,8 @@ function planCard(t) {
   if (timer) {
     const { opts, def } = planLens(t), ch = S.cardLen[t.id] ?? def;
     lens = `<div class="clens">${opts.map(o => `<button data-act="clen" data-id="${esc(t.id)}" data-v="${o.v}" class="${o.v === ch ? "on" : ""}">${esc(o.label)}</button>`).join("")}<span class="small muted" style="align-self:center">min</span></div>`;
-    acts = `<button class="btn accent" style="flex:2" data-act="start-t" data-id="${esc(t.id)}">▶ Start · ${ch ? esc(ch) + " min" : fmt(totalAll(objFromPlan(t)))}</button><button class="btn" data-act="load-t" data-id="${esc(t.id)}">Load</button><button class="btn" data-act="edit-t" data-id="${esc(t.id)}">Edit</button>`;
-  } else acts = `<button class="btn accent" data-act="load-t" data-id="${esc(t.id)}">▶ Use</button><button class="btn" data-act="edit-t" data-id="${esc(t.id)}">Edit</button><button class="btn" data-act="dup-t" data-id="${esc(t.id)}">Duplicate</button>`;
+    acts = `<button class="btn accent" style="flex:2" data-act="start-t" data-id="${esc(t.id)}">${IC.ps}Start · ${ch ? esc(ch) + " min" : fmt(totalAll(objFromPlan(t)))}</button><button class="btn" data-act="load-t" data-id="${esc(t.id)}">Load</button><button class="btn" data-act="edit-t" data-id="${esc(t.id)}">Edit</button>`;
+  } else acts = `<button class="btn accent" data-act="load-t" data-id="${esc(t.id)}">${IC.ps}Use</button><button class="btn" data-act="edit-t" data-id="${esc(t.id)}">Edit</button><button class="btn" data-act="dup-t" data-id="${esc(t.id)}">Duplicate</button>`;
   return `<div class="card plan">
     <div class="ptop"><div class="grow"><div class="pname">${esc(t.name)}</div>
       <div class="pmeta"><span class="pill ${timer ? "t" : "r"}">${timer ? "Timer" : "Reps"}</span> ${shape}${len ? " · " + len : ""} · ${t.lastUsed ? "last done " + esc(fmtDate(t.lastUsed)) : "not done yet"}</div></div>
@@ -1019,11 +1185,10 @@ function planCard(t) {
 }
 function viewPlans() {
   const q = S.wq.trim().toLowerCase(), f = S.wf, folders = folderList();
-  let h = `<div class="card" style="padding:12px">
-    <div class="search"><input class="in" id="wq" data-k="wq" placeholder="Search workouts or exercises…" value="${esc(S.wq)}"><button class="btn primary" data-act="new-t" style="white-space:nowrap">+ New</button></div>
-    <div class="fchips"><button data-act="wf" data-f="" class="${!f ? "on" : ""}">All</button><button data-act="wf" data-f="★" class="${f === "★" ? "on" : ""}">★ Favorites</button>${folders.map(x => `<button data-act="wf" data-f="${esc(x)}" class="${f === x ? "on" : ""}">${esc(x)}</button>`).join("")}</div>
-  </div>`;
-  if (!S.templates.length) return h + `<div class="card empty">${S.dbState === "on" && !S.loaded.tpl ? "Loading…" : "No saved workouts yet.<br>Tap “+ New”, or build one on Today and tap “Save as workout”."}</div>`;
+  let h = `<div class="tday">${pageHead("Workouts", "", `<button class="btn primary sm" data-act="new-t">${IC.plusS}New</button>`)}</div>
+    <input class="in search" id="wq" data-k="wq" type="search" placeholder="Search workouts or exercises" value="${esc(S.wq)}">
+    <div class="fchips"><button data-act="wf" data-f="" class="${!f ? "on" : ""}">All</button><button data-act="wf" data-f="★" class="${f === "★" ? "on" : ""}">★ Favorites</button>${folders.map(x => `<button data-act="wf" data-f="${esc(x)}" class="${f === x ? "on" : ""}">${esc(x)}</button>`).join("")}</div>`;
+  if (!S.templates.length) return h + `<div class="card empty">${S.dbState === "on" && !S.loaded.tpl ? "Loading…" : `<div class="etitle">No saved workouts yet</div>Build one on Today and tap “Save as workout”, or start a new one here.<div style="margin-top:14px"><button class="btn primary" data-act="new-t">${IC.plusS}New workout</button></div>`}</div>`;
   let list = S.templates.filter(t => !q || (t.name + " " + (t.folder || "") + " " + (t.blocks || []).map(b => (b.exercises || []).join(" ")).join(" ")).toLowerCase().includes(q));
   if (f === "★") list = list.filter(t => t.starred); else if (f) list = list.filter(t => (t.folder || "").trim() === f);
   if (!list.length) return h + `<div class="card empty">No workouts match.</div>`;
@@ -1038,11 +1203,11 @@ const KIND = { workout: { label: "Workouts", dot: "#d4ff3a" }, focus: { label: "
 function weekStart() { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
 function viewHistory() {
   const unit = settings().unit, F = S.hf || "all";
-  if (!S.workouts.length) return `<div class="tday"><div class="tdhead"><div class="grow"><div class="tdtitle">History</div></div></div></div><div class="card empty">${S.loaded.wk ? "Nothing logged yet.<br>Finish a workout, focus session or meditation and it shows up here." : "Loading…"}</div>`;
+  if (!S.workouts.length) return `<div class="tday">${pageHead("History")}</div><div class="card empty">${S.loaded.wk ? `<div class="etitle">Nothing logged yet</div>Finish a workout, focus session or meditation and it shows up here.` : "Loading…"}</div>`;
   const ws = weekStart(), wk = S.workouts.filter(w => String(w.date) >= ws);
   const nW = wk.filter(w => kindOf(w) === "workout").length, fS = wk.filter(w => kindOf(w) === "focus").reduce((a, w) => a + (w.durationSec || 0), 0), mS = wk.filter(w => kindOf(w) === "meditate").reduce((a, w) => a + (w.durationSec || 0), 0);
-  let h = `<div class="tday"><div class="tdhead"><div class="grow"><div class="tdtitle">History</div></div></div></div>
-    <div class="fchips" style="padding-top:0">${[["all", "All"], ["workout", "Workouts"], ["focus", "Focus"], ["meditate", "Meditation"]].map(([k, l]) => `<button data-act="hf" data-f="${k}" class="${F === k ? "on" : ""}">${l}</button>`).join("")}</div>
+  let h = `<div class="tday">${pageHead("History")}</div>
+    <div class="fchips" style="padding-top:0;margin-bottom:12px">${[["all", "All"], ["workout", "Workouts"], ["focus", "Focus"], ["meditate", "Meditation"]].map(([k, l]) => `<button data-act="hf" data-f="${k}" class="${F === k ? "on" : ""}">${l}</button>`).join("")}</div>
     <div class="card hstats"><div><span>Workouts this week</span><b>${nW}</b></div><div><span>Focus</span><b>${hm(fS)}</b></div><div><span>Meditation</span><b>${hm(mS)}</b></div></div>`;
   if (F === "workout") {
     const counts_ = [...S.lastIdx.entries()].map(([k, v]) => ({ k, name: v[0].name, n: v.length })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
@@ -1092,12 +1257,11 @@ function chart(sess) {
 }
 
 function viewLibrary() {
-  const st = settings();
-  let h = `<div class="card"><div class="ttl">Exercise library</div>`;
+  let h = `<div class="card">`;
   const cats = S.library?.categories || [];
   if (!cats.length) h += `<div class="small muted" style="margin-bottom:10px">${S.loaded.lib || S.dbState === "off" ? "No exercises yet. Add a category below." : "Loading…"}</div>`;
   cats.forEach((c, ci) => {
-    h += `<div style="display:flex;align-items:center;margin-top:6px"><b class="grow">${esc(c.name)} <span class="small muted">${(c.exercises || []).length}</span></b><button class="icon" data-act="del-cat" data-c="${ci}" aria-label="Delete category">🗑</button></div>
+    h += `<div style="display:flex;align-items:center;margin-top:6px"><b class="grow">${esc(c.name)} <span class="small muted">${(c.exercises || []).length}</span></b><button class="icon" data-act="del-cat" data-c="${ci}" aria-label="Delete category">${IC.trash}</button></div>
       <div class="chips">${(c.exercises || []).map((e, xi) => `<span class="chip">${esc(e)}<button data-act="del-lib" data-c="${ci}" data-x="${xi}" aria-label="Remove ${esc(e)}">✕</button></span>`).join("")}</div>
       <form class="addrow" data-form="add-lib" data-c="${ci}"><input class="in" name="v" placeholder="Add to ${esc(c.name)}…" data-k="al${ci}"><button class="btn sm">Add</button></form>`;
   });
@@ -1108,36 +1272,62 @@ function viewLibrary() {
 function viewSettings() {
   const st = settings();
   const tg = (k, label, on) => `<label class="tog"><input type="checkbox" data-setting="${k}" ${on ? "checked" : ""}> ${label}</label>`;
-  return `<div class="editbar"><button class="btn sm" data-act="tab" data-tab="${esc(S.prevTab || "today")}">← Back</button></div>
-  <div class="card"><div class="ttl">Settings</div>
-    <div class="fld"><span class="small muted" style="font-weight:600">Weight units</span>
-      <div class="seg" style="margin-top:4px"><button data-act="unit" data-u="lb" class="${st.unit === "lb" ? "on" : ""}">lb</button><button data-act="unit" data-u="kg" class="${st.unit === "kg" ? "on" : ""}">kg</button></div></div>
-    <div class="small muted" style="font-weight:600;margin-top:12px;margin-bottom:4px">Default length for new timer workouts</div>
-    <div class="lens">${LENS.map(v => `<button data-act="deflen" data-v="${v}" class="${num(st.targetMin) === v ? "on" : ""}">${v}<small>min</small></button>`).join("")}</div>
-    ${tg("autoFit", "Fit new timer workouts to that length", st.autoFit)}
-    <div class="small muted" style="font-weight:600;margin-top:10px">Defaults for new supersets</div>
+  const sync = Sync.on()
+    ? `<div class="synchead"><span class="syncdot lg" data-syncdot></span><div class="grow"><b>Sync is on</b><div id="sync-status" class="small muted"></div></div></div>
+      <p class="small muted">Connected to GitHub as <b style="color:var(--ink)">${esc(Sync.cfg.login || "you")}</b>. Your history, saved workouts, exercise library and settings stay the same on every device you connect. Custom sounds stay on each device.</p>
+      <div class="acts"><button class="btn" data-act="sync-now">Sync now</button><button class="btn" data-act="sync-copy">Copy token</button><button class="btn ghost danger" data-act="sync-off">Turn off</button></div>`
+    : `<div class="synchead"><span class="syncdot lg off">${IC.cloudOff}</span><div class="grow"><b>Sync is off</b><div class="small muted">Your data is only on this device</div></div></div>
+      <p class="small muted">Tempo can keep a private copy in your GitHub account. It backs up as you go and keeps your phone and laptop in step.</p>
+      <button class="btn primary big" data-act="sync-setup">Set up sync</button>`;
+  return `<div class="tday">${pageHead("Settings")}</div>
+  <div class="shh">Sync & backup</div>
+  <div class="card">${sync}
+    <div class="divider"></div>
+    <div class="small muted" style="margin-bottom:10px">Or save a backup file yourself. It includes your custom sounds.</div>
+    <div class="acts"><button class="btn" data-act="backup">Download backup</button><button class="btn" data-act="restore">Restore…</button></div>
+    <input type="file" id="restore-file" accept="application/json,.json" hidden>
+  </div>
+  <div class="shh">Workouts</div>
+  <div class="card">
+    <div class="fld"><span>Weight units</span>
+      <div class="seg"><button data-act="unit" data-u="lb" class="${st.unit === "lb" ? "on" : ""}">lb</button><button data-act="unit" data-u="kg" class="${st.unit === "kg" ? "on" : ""}">kg</button></div></div>
+    <div class="fld" style="margin-bottom:4px"><span>Default length for timed workouts</span></div>
+    <div class="lens" style="grid-template-columns:repeat(6,minmax(0,1fr))">${LENS.map(v => `<button data-act="deflen" data-v="${v}" class="${num(st.targetMin) === v ? "on" : ""}">${v}<small>min</small></button>`).join("")}</div>
+    ${tg("autoFit", "Fit new timed workouts to that length", st.autoFit)}
+    ${tg("restsOn", "Short transitions between exercises", st.restsOn)}
+    <div class="fld" style="margin:12px 0 0"><span>Defaults for new supersets</span></div>
     <div class="tset">
       ${[["rounds", "Rounds"], ["work", "Work (sec)"], ["restEx", "Transition (sec)"], ["restRound", "Round rest (sec)"], ["restBlock", "Between supersets"], ["ready", "Get ready (sec)"]].map(([k, l]) => `<label>${l}<input class="in" inputmode="numeric" data-setting="${k}" data-k="s-${k}" value="${esc(st[k])}"></label>`).join("")}
     </div>
-    ${tg("restsOn", "Short transitions between exercises", st.restsOn)}
   </div>
-  <div class="card"><div class="ttl">Sounds</div>
-    <div class="small muted" style="margin-bottom:4px">Pick a sound for each moment, or add your own files.</div>
-    ${MODES.map(m => `<button class="orow" data-act="snd-mode" data-m="${m.id}"><span class="grow">${m.label}</span><span class="ov">${esc(soundName(st[SOUND_EVENTS[m.id][0][0]]))}${SOUND_EVENTS[m.id].length > 1 ? " …" : ""}</span><span class="chev">${IC.chev}</span></button>`).join("")}
+  <div class="shh">Sounds & voice</div>
+  <div class="card ocard">
+    ${MODES.map(m => `<button class="orow" data-act="snd-mode" data-m="${m.id}"><span class="grow">${m.label} sounds</span><span class="ov">${esc(soundName(st[SOUND_EVENTS[m.id][0][0]]))}${SOUND_EVENTS[m.id].length > 1 ? " …" : ""}</span><span class="chev">${IC.chev}</span></button>`).join("")}
+    ${togRow("Coaching cues <span class='small muted' style='display:block;font-weight:400'>“Halfway”, “ten seconds”, “last round”</span>", "cues")}
+    ${togRow("Say “3, 2, 1” out loud <span class='small muted' style='display:block;font-weight:400'>Instead of beeping</span>", "count321")}
   </div>
-  <div class="card"><div class="ttl">Voice & cues</div>
-    ${tg("cues", "Coaching cues — “halfway”, “ten seconds”, “last round”", st.cues)}
-    ${tg("count321", "Say “3, 2, 1” out loud instead of beeping", st.count321)}
-    <div class="small muted">Beeps and the voice can also be switched off from the timer screen.</div>
-  </div>
-  <div class="card"><div class="ttl">Your data</div>
-    <div class="small muted" style="margin-bottom:10px">Everything is saved on this device only, in this browser. Download a backup now and then, and use it to move to a new phone or browser.</div>
-    <div class="acts"><button class="btn" data-act="backup">Download backup</button><button class="btn" data-act="restore">Restore from backup</button></div>
-    <input type="file" id="restore-file" accept="application/json,.json" hidden>
-  </div>
-  <div class="card"><div class="ttl">Put ${APP_NAME} on your home screen</div>
-    <div class="small" style="line-height:1.55"><b>iPhone:</b> open it in Safari, tap Share, then “Add to Home Screen”.<br><b>Android:</b> open it in Chrome, tap ⋮, then “Install app” or “Add to Home screen”.<br><span class="muted">Once installed it opens full screen and works offline.</span></div>
-  </div>`;
+  <div class="shh">Exercise library</div>
+  ${viewLibrary()}
+  <div class="shh">Install</div>
+  <div class="card"><div class="small" style="line-height:1.6"><b>iPhone:</b> open Tempo in Safari, tap Share, then “Add to Home Screen”.<br><b>Android:</b> open it in Chrome, tap ⋮, then “Install app”.<br><b>Mac or PC:</b> in Chrome or Edge, click the install icon in the address bar.<br><span class="muted">Once installed it opens full screen and works offline.</span></div></div>`;
+}
+function openSyncSetup() {
+  openSheet("Set up sync", `<ol class="steps">
+    <li><b>Create a GitHub token</b><div class="small muted">It lets Tempo read and write private gists (small files) in your account, and nothing else.</div>
+      <a class="btn" href="https://github.com/settings/tokens/new?scopes=gist&description=Tempo%20sync" target="_blank" rel="noopener">Open GitHub</a>
+      <div class="small muted">Set <b>Expiration</b> to “No expiration”, leave only <b>gist</b> ticked, then tap <b>Generate token</b> and copy it.</div></li>
+    <li><b>Paste it here</b>
+      <input class="in" id="sync-token" placeholder="ghp_…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <button class="btn primary big" data-act="sync-connect">Connect</button>
+      <div id="sync-msg" class="small muted" role="status"></div></li>
+  </ol>
+  <div class="mnote">Save the token in your password manager. To connect your other devices, open Settings there and paste the same token. Everything merges, nothing gets replaced.</div>`);
+}
+async function connectSync(btn) {
+  const inp = $("#sync-token"), msg = $("#sync-msg"); if (!inp) return;
+  btn.disabled = true; msg.className = "small muted"; msg.textContent = "Connecting…";
+  try { await Sync.connect(inp.value); closeSheet(); render(); toast(Sync.state === "ok" ? "Sync is on" : "Connected, but the first sync didn't finish"); }
+  catch (e) { btn.disabled = false; msg.className = "small warn"; msg.textContent = e.code === 401 ? "GitHub didn't accept that token. Check you copied all of it." : (e.message || "Couldn't connect"); }
 }
 
 /* ---------- sheet ---------- */
@@ -1619,12 +1809,12 @@ function drawTimer(full) {
       body = `<div class="phase">${T.early ? "Ended early" : "Done"}</div><div class="done-t">${fmt(S.draft.durationSec)}</div>
         <div class="tname">${T.early ? "Good effort." : "Nice work!"}</div><div class="tmeta">${log ? "Add the weights you used, then log it. Faded numbers are from last time." : "Log it to keep it in your history."}</div>
         ${log}
-        <div class="tdone"><button class="btn big w" data-act="t-save">✓ Log workout</button><button class="btn big o" data-act="t-close">Review on the Today page</button></div>`;
+        <div class="tdone"><button class="btn big w" data-act="t-save">${IC.cs}Log workout</button><button class="btn big o" data-act="t-close">Review on the Today page</button></div>`;
     } else if (T.ask) {
       body = `<div class="phase">Paused</div>
         <div class="tname" style="margin-top:10px">Take a breather</div>
         <div class="tmeta">${fmt(elapsedSec())} done · ${fmt(left)} to go</div>
-        <div class="tdone"><button class="btn big w" data-act="t-resume">▶ Resume</button><button class="btn big o" data-act="t-end">End workout & log it</button><button class="btn big o" data-act="t-leave">Leave — resume later</button></div>`;
+        <div class="tdone"><button class="btn big w" data-act="t-resume">${IC.ps}Resume</button><button class="btn big o" data-act="t-end">End workout & log it</button><button class="btn big o" data-act="t-leave">Leave — resume later</button></div>`;
     } else {
       const p = phaseInfo(T.i), isWork = st.k === "work";
       const tgtIdx = isWork ? T.i : nextWorkIdx(T.i), tgt = tgtIdx >= 0 ? T.steps[tgtIdx] : null;
@@ -1793,9 +1983,9 @@ function setSetting(k, v) { S.settings = Object.assign({}, S.settings, { [k]: v 
 /* ---------- rest pill (reps mode) ---------- */
 let RP = null;
 function renderRest() {
-  const el = $("#restpill"), show = S.tab === "today" && S.draft.mode === "reps" && !$("#timer").classList.contains("open");
+  const el = $("#restpill"), show = S.tab === "today" && S.mode === "workout" && S.draft.mode === "reps" && !$("#timer").classList.contains("open");
   el.style.display = show ? "block" : "none"; if (!show) return;
-  if (!RP) { el.innerHTML = `<div class="rp"><button data-act="rest-go">⏱ Rest ${fmt(settings().restRound)}</button></div>`; return; }
+  if (!RP) { el.innerHTML = `<div class="rp"><button data-act="rest-go">${IC.timer}Rest ${fmt(settings().restRound)}</button></div>`; return; }
   const rem = Math.max(0, (RP.endAt - Date.now()) / 1000);
   el.innerHTML = `<div class="rp run"><button data-act="rest-add">+15</button><button class="t num">${fmt(Math.ceil(rem))}</button><button data-act="rest-stop" aria-label="Stop rest">✕</button></div>`;
 }
@@ -1989,6 +2179,11 @@ document.addEventListener("click", e => {
       a.href = URL.createObjectURL(blob); a.download = `tempo-backup-${todayStr()}.json`; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast("Backup downloaded"); }); break;
     case "restore": $("#restore-file").click(); break;
+    case "sync-setup": openSyncSetup(); break;
+    case "sync-connect": connectSync(t); break;
+    case "sync-now": Sync.now(); break;
+    case "sync-copy": navigator.clipboard.writeText(Sync.cfg.token).then(() => toast("Token copied — paste it on your other device"), () => toast("Couldn't copy")); break;
+    case "sync-off": confirmSheet("Turn off sync on this device? Your data stays here and in your GitHub copy, and your other devices keep syncing.", "Turn off", () => { Sync.disconnect(); render(); }); break;
     case "deflen": S.settings = Object.assign({}, S.settings, { targetMin: +t.dataset.v }); saveSettingsSoon(); render(); break;
     case "unit": S.settings = Object.assign({}, S.settings, { unit: t.dataset.u }); saveSettingsSoon(); render(); break;
   }
@@ -2031,7 +2226,7 @@ document.addEventListener("change", e => {
     f.text().then(txt => { let data; try { data = JSON.parse(txt); } catch { toast("That file isn't a Tempo backup."); return; }
       if (!data || typeof data.db !== "object") { toast("That file isn't a Tempo backup."); return; }
       const n = Object.keys(data.db).filter(k => k.startsWith("workouts/")).length;
-      confirmSheet(`Replace everything on this device with the backup from ${String(data.exportedAt || "").slice(0, 10) || "that file"}? It has ${n} logged session${n === 1 ? "" : "s"}.`, "Restore", () => {
+      confirmSheet(`Replace everything on this device${Sync.on() ? " and your synced devices" : ""} with the backup from ${String(data.exportedAt || "").slice(0, 10) || "that file"}? It has ${n} logged session${n === 1 ? "" : "s"}.`, "Restore", () => {
         S.db.importAll(data.db); if (data.sounds) restoreSounds(data.sounds); if (data.draft) { S.draft = normDraft(data.draft) || S.draft; lsSet("wt.draft", S.draft); } toast("Backup restored"); render(); }, true); });
     return;
   }
@@ -2062,12 +2257,12 @@ function updTimerUI() {
   renderBar();
 }
 document.addEventListener("keydown", e => { if (e.key === "Escape" && $("#sheet").classList.contains("open")) closeSheet(); if (e.key === " " && T && !T.done && !T.ask && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); togglePause(); } });
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && AL && $("#alarm").classList.contains("open")) wakeOn();
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") Sync.soon(300); else if (Sync.pending) Sync.now();
+  if (document.visibilityState === "visible" && AL && $("#alarm").classList.contains("open")) wakeOn();
   if (!T || T.done) return; if (document.visibilityState === "visible") { wakeOn(); tick(); } else saveResume(); });
 
 if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
-$("#gearb").innerHTML = IC.gear;
-[["today", "today"], ["plans", "list"], ["history", "clock"]].forEach(([t, i]) => { const b = $("#nb-" + t); b.innerHTML = IC[i] + `<span>${b.textContent}</span>`; });
+[["today", "today"], ["plans", "list"], ["history", "clock"], ["settings", "gear"]].forEach(([t, i]) => { const b = $("#nb-" + t); b.innerHTML = IC[i] + `<span>${b.textContent}</span>`; });
 init();
 </script>
 </body>
