@@ -541,7 +541,7 @@ const IC = {
   lock: svgI('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/>', 16),
   cloudOff: svgI('<path d="M7 18.5a4.5 4.5 0 0 1-.9-8.9 6 6 0 0 1 11.6 1.4A3.75 3.75 0 0 1 17.25 18.5z"/><path d="M4 4l16 16"/>', 18)
 };
-const DEF = { unit: "lb", rounds: 3, work: 45, restEx: 15, restRound: 60, restBlock: 90, ready: 10, restsOn: true, targetMin: 30, balance: "even", autoFit: true, cues: true, count321: false, wtStep: null,
+const DEF = { unit: "lb", rounds: 3, work: 45, restEx: 15, restRound: 60, restBlock: 90, ready: 10, restsOn: true, targetMin: 30, balance: "even", autoFit: true, cues: true, count321: false, bgAudio: false, wtStep: null,
   focusMin: 25, shortBreak: 5, longBreak: 15, longEvery: 4, focusRounds: 4, autoBreaks: true, focusTask: "",
   medMin: 10, medGuide: "even", medBell: "bowl", medInterval: 0, medSettle: 15,
   alarmTime: "06:30", alarmSound: "bowl", alarmGentle: true, alarmSnooze: 9,
@@ -1640,6 +1640,7 @@ function viewSettings() {
     ${MODES.map(m => `<button class="orow" data-act="snd-mode" data-m="${m.id}"><span class="grow">${m.label} sounds</span><span class="ov">${esc(soundName(st[SOUND_EVENTS[m.id][0][0]]))}${SOUND_EVENTS[m.id].length > 1 ? " …" : ""}</span><span class="chev">${IC.chev}</span></button>`).join("")}
     ${togRow("Coaching cues <span class='small muted' style='display:block;font-weight:400'>“Halfway”, “ten seconds”, “last round”</span>", "cues")}
     ${togRow("Say “3, 2, 1” out loud <span class='small muted' style='display:block;font-weight:400'>Instead of beeping</span>", "count321")}
+    ${togRow("Keep sounds playing when locked (experimental)", "bgAudio")}
   </div>
   <div class="shh">Exercise library</div>
   ${viewLibrary()}
@@ -2014,6 +2015,35 @@ const exName = st => S.draft.blocks[st.b]?.exercises[st.e]?.name || "";
 const stName = st => exName(st) + (st.side ? ` · side ${st.side}` : "");
 const firstNamed = blk => blk.exercises.findIndex(e => e.name.trim());
 
+let bgEl = null, bgUrl = null, bgActive = false;
+function bgTitle(st) {
+  if (T.mode !== "workout") return st.label || "Tempo";
+  if (st.k === "work") return stName(st) || "Work";
+  if (st.k === "seg") return st.name || "Tempo";
+  return phaseInfo(T.i).label;
+}
+function bgMeta() {
+  if (!bgActive || !T) return;
+  try { const st = T.steps[T.i]; if (st && "mediaSession" in navigator && window.MediaMetadata) navigator.mediaSession.metadata = new MediaMetadata({ title: bgTitle(st), artist: "Tempo" }); } catch {}
+}
+function bgPlay() { try { const p = bgEl && bgEl.play(); p && p.catch && p.catch(() => {}); } catch {} }
+function bgAudioOn() {
+  try {
+    if (!bgEl) {
+      const n = 8000, b = new ArrayBuffer(44 + n * 2), v = new DataView(b), w = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+      w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, 8000, true); v.setUint32(28, 16000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
+      bgUrl = URL.createObjectURL(new Blob([b], { type: "audio/wav" }));
+      bgEl = document.createElement("audio"); bgEl.loop = true; bgEl.setAttribute("playsinline", ""); bgEl.src = bgUrl; bgEl.style.display = "none";
+      document.body.appendChild(bgEl);
+    }
+    bgActive = true; bgPlay(); bgMeta();
+  } catch {}
+}
+function bgAudioOff() {
+  bgActive = false;
+  try { bgEl && bgEl.pause(); if ("mediaSession" in navigator) navigator.mediaSession.metadata = null; } catch {}
+}
 function startTimer(fresh) {
   const steps = buildSteps(S.draft);
   if (!steps.length) { toast("Choose at least one exercise first."); return; }
@@ -2028,6 +2058,7 @@ function startTimer(fresh) {
   T = { mode: "workout", steps: shown, adj, sig, i, paused: false, remaining: rem, endAt: now + rem, started: now - (r ? (r.el || 0) * 1000 : 0), pausedMs: 0, pausedAt: null, cueKey: null, done: false, ask: false };
   $("#timer").classList.add("open"); renderRest(); renderBar();
   T.int = setInterval(tick, 100);
+  if (settings().bgAudio) bgAudioOn(); else bgAudioOff();
   saveResume(); cue(r ? "Resuming. " : ""); drawTimer(true);
 }
 function startSession(mode, steps, extra) {
@@ -2038,7 +2069,7 @@ function startSession(mode, steps, extra) {
   T = Object.assign({ mode, steps, i: 0, paused: false, remaining: steps[0].dur * 1000, endAt: now + steps[0].dur * 1000, started: now, pausedMs: 0, pausedAt: null, cueKey: null, done: false, ask: false }, extra || {});
   $("#timer").classList.add("open"); renderRest(); renderBar();
   T.int = setInterval(tick, 100);
-  cue(); drawTimer(true);
+  bgAudioOff(); cue(); drawTimer(true);
 }
 function saveResume() {
   if (!T || T.done || T.mode !== "workout") return;
@@ -2058,7 +2089,7 @@ function phaseInfo(i) {
 }
 function cue(prefix) {
   const st = T.steps[T.i]; if (!st) return; prefix = prefix || "";
-  const s = settings();
+  const s = settings(); bgMeta();
   if (T.mode !== "workout") return cueOther(st, prefix);
   if (st.k === "work") {
     playSound(s.sWorkGo); buzz([220]);
@@ -2118,8 +2149,8 @@ function gotoStep(i) {
 }
 function togglePause() {
   if (!T || T.done || T.ask) return; ensureAudio();
-  if (T.paused) { T.paused = false; T.held = false; T.lastTick = Date.now(); T.endAt = Date.now() + T.remaining; T.pausedMs += Date.now() - T.pausedAt; T.pausedAt = null; }
-  else { T.paused = true; T.pausedAt = Date.now(); T.remaining = T.endAt - Date.now(); try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {} }
+  if (T.paused) { T.paused = false; T.held = false; T.lastTick = Date.now(); T.endAt = Date.now() + T.remaining; T.pausedMs += Date.now() - T.pausedAt; T.pausedAt = null; if (bgActive) bgPlay(); }
+  else { if (bgEl && bgActive) try { bgEl.pause(); } catch {} T.paused = true; T.pausedAt = Date.now(); T.remaining = T.endAt - Date.now(); try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {} }
   saveResume(); drawTimer(true);
 }
 function adjustStep(d) {
@@ -2136,7 +2167,7 @@ function prevStep() { const st = T.steps[T.i]; const el = st.dur * 1000 - T.rema
 const elapsedSec = () => T ? Math.round(((T.done ? T.doneAt : (T.paused ? T.pausedAt : Date.now())) - T.started - T.pausedMs) / 1000) : 0;
 function finishTimer(early) {
   if (T.paused && T.pausedAt) { T.pausedMs += Date.now() - T.pausedAt; T.pausedAt = null; }
-  T.done = true; T.early = !!early; T.ask = false; T.doneAt = Date.now(); clearInterval(T.int); wakeOff();
+  T.done = true; T.early = !!early; T.ask = false; T.doneAt = Date.now(); clearInterval(T.int); wakeOff(); bgAudioOff();
   if (T.mode === "workout") { S.draft.durationSec = elapsedSec(); delete S.draft.resume; saveDraftSoon(); }
   else T.doneData = doneDataFor(early);
   if (!early) {
@@ -2147,7 +2178,7 @@ function finishTimer(early) {
   else try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {}
   drawTimer(true);
 }
-function closeTimer() { if (T) clearInterval(T.int); T = null; wakeOff(); try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {} $("#timer").classList.remove("open"); render(); }
+function closeTimer() { if (T) clearInterval(T.int); T = null; wakeOff(); bgAudioOff(); try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {} $("#timer").classList.remove("open"); render(); }
 function askExit() { if (!T || T.done) return; if (!T.paused) togglePause(); T.ask = true; drawTimer(true); }
 function resumeFromAsk() { if (!T) return; T.ask = false; if (T.paused) togglePause(); else drawTimer(true); }
 function leaveTimer() { saveResume(); closeTimer(); toast("Paused — tap Resume when you're ready."); }
