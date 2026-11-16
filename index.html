@@ -557,7 +557,7 @@ const BAL = { work: { ex: .2, rd: .8, bl: 1.5, label: "More work" }, even: { ex:
 
 /* ---------- state ---------- */
 const S = {
-  tlSel: null, tlO: null,
+  tlSel: null, tlO: null, tlKey: "",
   db: null, dbState: "loading", tab: lsGet("wt.tab") || "today",
   library: null, settings: {}, templates: [], workouts: [], lastIdx: new Map(),
   draft: null, edit: null, open: {}, progEx: "", muted: !!lsGet("wt.muted"), voice: lsGet("wt.voice") !== false,
@@ -1064,13 +1064,19 @@ function tlMatch(sel, s) {
   if (sel.t === "rest") return s.k === "rest" && REST_SUB[s.sub] === sel.k;
   return sel.t === "seg" && s.k === "seg" && s.sub === sel.which;
 }
+/* Exercise selections point at indices, so remember the structure they were made against and drop them when it changes */
+const tlKey = o => o.blocks.map(b => b.id + ":" + b.exercises.map(e => e.id).join(",")).join("|");
+function tlValid(o) {
+  if (S.tlSel && (S.tlO !== o || !teInfo(o, S.tlSel) || (S.tlSel.t === "ex" && S.tlKey !== tlKey(o)))) S.tlSel = null;
+}
 function timeline(o) {
+  tlValid(o);
   const st = buildSteps(o); if (!st.length) return "";
-  if (S.tlSel && (S.tlO !== o || !teInfo(o, S.tlSel))) S.tlSel = null;
   return st.map((s, i) => `<i data-si="${i}" class="${s.k === "work" ? "w" : s.k === "ready" ? "g" : "r"}${tlMatch(S.tlSel, s) ? " sel" : ""}" style="flex:${s.dur}"></i>`).join("");
 }
 const TL_REST = { ex: "Switch", rd: "Round rest", bl: "Between supersets" };
 function tlStrip(o) {
+  tlValid(o);
   const sel = S.tlSel, I = sel && teInfo(o, sel); if (!I) return "";
   const n = buildSteps(o).filter(s => tlMatch(sel, s) && s.side !== 2).length;
   const txt = sel.t === "ex" ? `${I.title} · ${sx(I.v)} × ${n} round${n === 1 ? "" : "s"}` : sel.t === "rest" ? `${TL_REST[sel.k]} · ${sx(I.v)} × ${n}` : `${I.title} · ${fmt(I.v)}`;
@@ -1078,6 +1084,7 @@ function tlStrip(o) {
 }
 function tlSync() {
   const o = cur(), tl = $("#tl"); if (!tl) return;
+  tlValid(o);
   const st = buildSteps(o);
   tl.classList.toggle("hassel", !!S.tlSel);
   [...tl.children].forEach((n, i) => n.classList.toggle("sel", tlMatch(S.tlSel, st[i] || {})));
@@ -1095,7 +1102,7 @@ function tlPick(x) {
   else if (s.k === "seg") sel = { t: "seg", which: s.sub };
   if (!sel) return;
   if (S.tlSel && JSON.stringify(S.tlSel) === JSON.stringify(sel)) return;
-  S.tlSel = sel; S.tlO = o; tlSync();
+  S.tlSel = sel; S.tlO = o; S.tlKey = tlKey(o); tlSync();
 }
 let tlDown = false;
 document.addEventListener("pointerdown", e => { const tl = e.target.closest && e.target.closest("#tl"); if (!tl) return; tlDown = true; try { tl.setPointerCapture(e.pointerId); } catch {} tlPick(e.clientX); });
