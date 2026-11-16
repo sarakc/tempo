@@ -660,6 +660,13 @@ function blockRaw(b, d) {
 }
 /* A pinned superset lands on lockTotal (raw + its adjustment); if it couldn't fit, the honest longer length */
 const blockTotal = (b, d) => blockRaw(b, d) + (fitLocked(b, d) ? Math.round(+b.adj || 0) : 0);
+/* Manual mode: the per-exercise work that makes a superset last totalSec, with pinned exercises, each-side units and side switches held fixed */
+function backCalcWork(b, d, totalSec) {
+  const ex = namedEx(b).filter(e => exPin(e) == null); if (!ex.length) return int(b.work, 0);
+  const R = b.rounds, all = namedEx(b);
+  const held = blockFixed(b, d) + R * all.filter(e => e.side).length * SIDE_SWITCH + all.reduce((a, e) => a + (exPin(e) == null ? 0 : R * exUnits(e) * exPin(e)), 0);
+  return Math.max(5, Math.round((totalSec - held) / (R * ex.reduce((a, e) => a + exUnits(e), 0))));
+}
 function parseDur(v) { v = String(v).trim(); if (!v) return null; if (v.includes(":")) { const [m, s] = v.split(":"); return int(m, 0) * 60 + int(s, 0); } const n = num(v); return n == null ? null : Math.round(n * 60); }
 function counts(d) {
   let nW = 0, nE = 0, nR = 0, nB = -1;
@@ -987,7 +994,7 @@ const fitTol = tgt => Math.min(30, Math.max(10, Math.round(tgt * 0.03)));
 const tgtSec = o => Math.round((num(o.targetMin) || DEF.targetMin) * 60);
 function fitFixes(o) {
   const tot = totalAll(o), tgt = tgtSec(o), tol = fitTol(tgt);
-  if (tot <= tgt + tol) return "";
+  if (!(o.fit && o.fit.short) && tot <= tgt + tol) return "";
   const need = Math.ceil(tot / 60);
   let btns = `<button class="btn sm" data-act="fit-len" data-v="${need}">Make it ${need} min</button>`;
   const maxR = Math.max(...o.blocks.map(b => b.rounds));
@@ -995,12 +1002,17 @@ function fitFixes(o) {
     const c = clone(o); c.blocks.forEach(b => { b.rounds = Math.min(b.rounds, R); }); applyFit(c);
     if (totalAll(c) <= tgt + tol) { btns += `<button class="btn sm" data-act="fit-rounds" data-v="${R}">Use ${R} round${R > 1 ? "s" : ""}</button>`; break; }
   }
+  const pins = [];
+  o.blocks.forEach((b, bi) => namedEx(b).forEach(e => { const p = exPin(e); if (p != null) pins.push({ bi, e, ei: b.exercises.indexOf(e), p }); }));
+  pins.sort((x, y) => y.p - x.p).slice(0, 2).forEach(x => { btns += `<button class="btn sm" data-act="unpin" data-b="${x.bi}" data-e="${x.ei}">Set ${esc(x.e.name.trim())} back to auto</button>`; });
+  o.blocks.forEach((b, bi) => { if (int(b.lockTotal, 0) > 0 && namedEx(b).length) btns += `<button class="btn sm" data-act="unpin-blk" data-b="${bi}">Set Superset ${LET[bi]} back to auto</button>`; });
   return `<div class="warn" style="margin-top:6px">Too much to fit in ${num(o.targetMin)} min — the shortest version is ${fmt(tot)}.</div><div class="acts">${btns}</div>`;
 }
 function fitSummary(o) {
   if (!o.autoFit) return `<span class="muted">Times are set by hand on each superset. Tap a length to fit them automatically.</span>`;
   const b = o.blocks.find(x => x.exercises.some(e => e.name.trim()));
   if (!b) return `<span class="muted">Add exercises and the timings will size themselves.</span>`;
+  if (o.fit && o.fit.allSet) return `<span class="muted">All times are set by hand · <b>${fmt(totalAll(o))}</b></span>` + fitFixes(o);
   return `<b>${sx(b.work)}</b> per exercise` + (o.restsOn ? ` · <b>${sx(b.restEx)}</b> to switch` : "") + ` · <b>${sx(b.restRound)}</b> between rounds` + (counts(o).nB ? ` · <b>${sx(o.restBlock)}</b> between supersets` : "") + fitFixes(o);
 }
 function blockSum(b, o) {
@@ -2187,6 +2199,8 @@ document.addEventListener("click", e => {
     case "fill-go": doFill(t.dataset.v); break;
     case "len": S.lenCustom = t.dataset.v === "custom"; o.autoFit = true; if (!S.lenCustom) o.targetMin = t.dataset.v; touch(o); render();
       if (S.lenCustom) { const n = document.querySelector('[data-k="targetMin"]'); if (n) { n.focus(); try { n.select(); } catch {} } } break;
+    case "unpin": delete o.blocks[bi].exercises[ei].work; touch(o); render(); break;
+    case "unpin-blk": delete o.blocks[bi].lockTotal; touch(o); render(); break;
     case "fit-len": o.targetMin = t.dataset.v; S.lenCustom = !LENS.includes(+t.dataset.v); touch(o); render(); break;
     case "fit-rounds": { const R = +t.dataset.v; o.blocks.forEach(b => { b.rounds = Math.min(b.rounds, R); }); normDraft(o); touch(o); render(); toast(`Now ${R} round${R > 1 ? "s" : ""} per superset`); break; }
     case "adv": S.adv = !S.adv; render(); break;
@@ -2322,7 +2336,7 @@ document.addEventListener("change", e => {
   }
   if (t.dataset.blk && t.dataset.blk.endsWith(",total")) {
     const b = o.blocks[+t.dataset.blk.split(",")[0]], T0 = parseDur(t.value);
-    if (T0 != null) { b.work = Math.max(5, Math.round((T0 - blockFixed(b, o)) / (b.rounds * namedCount(b)))); touch(o); }
+    if (T0 != null) { b.work = backCalcWork(b, o, T0); touch(o); }
     const keep = document.activeElement; if (keep === t) t.value = fmt(blockTotal(b, o)); updTimerUI(true); return;
   }
 });

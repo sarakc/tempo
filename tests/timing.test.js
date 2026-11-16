@@ -265,3 +265,21 @@ test("signature: swapping two identically timed exercises changes it", () => {
   assert.notEqual(sa, sb);
   assert.match(sa, /w\d+:bSquatRow\.e0Squat,/);
 });
+
+test("backCalcWork: pinned exercises keep their time", () => {
+  const d = timerDraft({ autoFit: false }, [custom("b1", [ex("Squat"), ex("Plank", { work: 60 })])]);
+  assert.equal(T.backCalcWork(d.blocks[0], d, 600), 85);
+});
+
+test("backCalcWork: fully pinned superset returns existing work", () => {
+  const d = timerDraft({ autoFit: false }, [custom("b1", [ex("Squat", { work: 40 }), ex("Plank", { work: 60 })])]);
+  assert.equal(T.backCalcWork(d.blocks[0], d, 600), 45);
+});
+
+test("backCalcWork: each-side exercise counts two units and switch steps", () => {
+  const d = timerDraft({ autoFit: false }, [custom("b1", [ex("Squat"), ex("Lunge", { side: true })])]);
+  const w = T.backCalcWork(d.blocks[0], d, 600);
+  assert.equal(w, Math.round((600 - 3 * 15 - 2 * 60 - 3 * 5) / 9));
+  d.blocks[0].work = w;
+  assert.ok(Math.abs(T.blockTotal(d.blocks[0], d) - 600) <= 9);
+});
