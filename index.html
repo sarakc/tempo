@@ -555,8 +555,9 @@ const emptySets = n => Array.from({ length: n }, () => ({ w: "", r: "" }));
 function mkBlock(names, rounds, tm) {
   const st = settings(); rounds = rounds || st.rounds;
   return { id: uid(), rounds, work: tm?.work ?? st.work, restEx: tm?.restEx ?? st.restEx, restRound: tm?.restRound ?? st.restRound,
-    exercises: names.map(n => { const x = normExercise(n); x.sets = emptySets(rounds); return x; }), ...(tm?.lockTotal ? { lockTotal: true } : {}) };
+    exercises: names.map(n => { const x = normExercise(typeof n === "string" ? n : { ...n, id: null }); x.sets = emptySets(rounds); return x; }) };
 }
+const lockOf = b => int(b?.lockTotal, 0) > 0 ? { lockTotal: int(b.lockTotal, 0) } : {};
 function timingFrom(src) {
   const st = settings();
   return { restBlock: src?.restBlock ?? st.restBlock, ready: src?.ready ?? st.ready, restsOn: src?.restsOn ?? st.restsOn,
@@ -570,7 +571,7 @@ function blankDraft(mode) {
 }
 function draftFrom(src, title, planId) {
   return Object.assign({ date: S.draft?.date || todayStr(), title: title || "", mode: src.mode || "reps", planId: planId || null,
-    blocks: (src.blocks || []).map(b => mkBlock(b.exercises || [], b.rounds, b)),
+    blocks: (src.blocks || []).map(b => Object.assign(mkBlock(b.exercises || [], b.rounds, b), lockOf(b))),
     notes: "", startedAt: null, durationSec: null }, timingFrom(src));
 }
 function normDraft(d) {
@@ -589,13 +590,13 @@ function planFromObj(o, name, extra) {
     autoFit: !!o.autoFit, targetMin: num(o.targetMin) ?? DEF.targetMin, balance: o.balance || "even", ...(num(o.restScale) != null ? { restScale: num(o.restScale), balance: num(o.restScale) <= 0.8 ? "work" : num(o.restScale) >= 1.25 ? "rest" : "even" } : {}),
     restLocks: o.restLocks ? { ...o.restLocks } : {}, ...(o.warmup ? { warmup: { ...o.warmup } } : {}), ...(o.cooldown ? { cooldown: { ...o.cooldown } } : {}), restsOn: !!o.restsOn,
     restBlock: int(o.restBlock, 0), ready: int(o.ready, 0), logReps: !!o.logReps,
-    blocks: o.blocks.map(b => ({ rounds: b.rounds, work: int(b.work, 0), restEx: int(b.restEx, 0), restRound: int(b.restRound, 0), exercises: b.exercises.filter(e => e.name.trim()).map(planExercise), ...(b.lockTotal ? { lockTotal: true } : {}) })),
+    blocks: o.blocks.map(b => ({ rounds: b.rounds, work: int(b.work, 0), restEx: int(b.restEx, 0), restRound: int(b.restRound, 0), exercises: b.exercises.filter(e => e.name.trim()).map(planExercise), ...lockOf(b) })),
     updatedAt: Date.now() }, extra || {});
 }
 function objFromPlan(t) {
   const o = draftFrom(t, t.name); o.name = t.name; o.folder = t.folder || ""; o.starred = !!t.starred; o.mode = t.mode || "reps";
   if (!o.blocks.length) o.blocks = [mkBlock(["", ""])];
-  o.blocks.forEach(b => { if (!b.exercises.length) b.exercises = ["", ""].map(() => ({ name: "", sets: emptySets(b.rounds) })); });
+  o.blocks.forEach(b => { if (!b.exercises.length) b.exercises = ["", ""].map(() => ({ ...normExercise(""), sets: emptySets(b.rounds) })); });
   applyFit(o);
   return o;
 }
@@ -604,50 +605,102 @@ const stripId = t => { const c = clone(t); delete c.id; return c; };
 
 /* @testable */
 /* ---------- timer math ---------- */
+const namedEx = b => b.exercises.filter(e => e.name.trim());
+const exPin = e => { const w = int(e.work, 0); return w > 0 ? w : null; };
+const segDur = g => g ? int(g.dur, 0) : 0;
+/* Superset whose lockTotal the fit honours: fit mode, and at least one named exercise left to stretch */
+const fitLocked = (b, d) => d.mode === "timer" && !!d.autoFit && int(b.lockTotal, 0) > 0 && namedEx(b).some(e => exPin(e) == null);
+/* Per-superset fit inputs: wu = unpinned work units, wp = pinned work seconds, sw = side-switch seconds (all × rounds) */
+function exStats(b, d) {
+  const ex = namedEx(b), R = b.rounds; let wu = 0, wp = 0, sides = 0;
+  ex.forEach(e => { const k = exUnits(e), p = exPin(e); if (e.side) sides++; if (p == null) wu += k; else wp += k * p; });
+  return { n: ex.length, wu: R * wu, wp: R * wp, sw: R * sides * SIDE_SWITCH, nE: d.restsOn && ex.length ? R * (ex.length - 1) : 0, nR: ex.length ? R - 1 : 0 };
+}
+/* Spread a whole-second adjustment over a pool's auto work steps, last first, round-robin, never below 1s */
+function spreadAdj(steps, adj) {
+  const auto = steps.filter(s => s.k === "work" && s.auto), sg = Math.sign(adj); let left = Math.abs(adj);
+  while (left > 0) {
+    let moved = false;
+    for (let i = auto.length - 1; i >= 0 && left > 0; i--) if (auto[i].dur + sg >= 1) { auto[i].dur += sg; left--; moved = true; }
+    if (!moved) break;
+  }
+}
 function buildSteps(d) {
-  const steps = [];
+  const steps = [], fit = d.mode === "timer" && !!d.autoFit;
   const blocks = d.blocks.map((b, bi) => ({ b, bi, ex: b.exercises.map((e, ei) => ({ e, ei })).filter(x => x.e.name.trim()) })).filter(x => x.ex.length);
   if (!blocks.length) return steps;
+  const seg = sub => { const g = d[sub], dur = segDur(g); if (dur > 0) steps.push({ k: "seg", sub, name: String(g.name || "").trim() || (sub === "warmup" ? "Warm-up" : "Cool-down"), dur }); };
   if (int(d.ready, 0) > 0) steps.push({ k: "ready", sub: "ready", dur: int(d.ready, 0) });
+  seg("warmup");
   blocks.forEach((B, k) => {
-    const b = B.b;
+    const b = B.b, locked = fitLocked(b, d), pool = locked ? b.id : "o", from = steps.length;
     for (let r = 0; r < b.rounds; r++) {
       B.ex.forEach((x, xi) => {
-        steps.push({ k: "work", dur: Math.max(1, int(b.work, 1)), b: B.bi, r, e: x.ei });
+        const w = { k: "work", dur: Math.max(1, exWork(x.e, b)), b: B.bi, r, e: x.ei, bid: b.id, eid: x.e.id, pool, auto: exPin(x.e) == null };
+        if (x.e.side) steps.push({ ...w, side: 1 }, { k: "rest", sub: "side", dur: SIDE_SWITCH }, { ...w, side: 2 });
+        else steps.push(w);
         if (xi < B.ex.length - 1 && d.restsOn && int(b.restEx, 0) > 0) steps.push({ k: "rest", sub: "switch", dur: int(b.restEx, 0) });
       });
       if (r < b.rounds - 1 && int(b.restRound, 0) > 0) steps.push({ k: "rest", sub: "round", dur: int(b.restRound, 0) });
     }
+    if (locked) spreadAdj(steps.slice(from), Math.round(+b.adj || 0));
     if (k < blocks.length - 1 && int(d.restBlock, 0) > 0) steps.push({ k: "rest", sub: "block", dur: int(d.restBlock, 0) });
   });
+  seg("cooldown");
+  if (fit) spreadAdj(steps.filter(s => s.pool === "o"), Math.round(+d.fit?.adj || 0));
   return steps;
 }
 const totalAll = d => buildSteps(d).reduce((a, s) => a + s.dur, 0);
 const namedCount = b => b.exercises.filter(e => e.name.trim()).length || b.exercises.length || 1;
 function blockFixed(b, d) { const n = namedCount(b), R = b.rounds; return (d.restsOn ? R * (n - 1) * int(b.restEx, 0) : 0) + (R - 1) * int(b.restRound, 0); }
-const blockTotal = (b, d) => b.rounds * namedCount(b) * int(b.work, 0) + blockFixed(b, d);
+/* Superset length from its own fields, before any rounding adjustment */
+function blockRaw(b, d) {
+  const ex = namedEx(b); if (!ex.length) return b.rounds * namedCount(b) * int(b.work, 0) + blockFixed(b, d);
+  return ex.reduce((a, e) => a + b.rounds * exUnits(e) * exWork(e, b), 0) + b.rounds * ex.filter(e => e.side).length * SIDE_SWITCH + blockFixed(b, d);
+}
+/* A pinned superset lands on lockTotal (raw + its adjustment); if it couldn't fit, the honest longer length */
+const blockTotal = (b, d) => blockRaw(b, d) + (fitLocked(b, d) ? Math.round(+b.adj || 0) : 0);
 function parseDur(v) { v = String(v).trim(); if (!v) return null; if (v.includes(":")) { const [m, s] = v.split(":"); return int(m, 0) * 60 + int(s, 0); } const n = num(v); return n == null ? null : Math.round(n * 60); }
 function counts(d) {
   let nW = 0, nE = 0, nR = 0, nB = -1;
-  d.blocks.forEach(b => { const n = b.exercises.filter(e => e.name.trim()).length; if (!n) return; nB++; nW += b.rounds * n; if (d.restsOn) nE += b.rounds * (n - 1); nR += b.rounds - 1; });
+  d.blocks.forEach(b => { const n = namedEx(b); if (!n.length) return; nB++; nW += b.rounds * n.reduce((a, e) => a + exUnits(e), 0); if (d.restsOn) nE += b.rounds * (n.length - 1); nR += b.rounds - 1; });
   return { nW, nE, nR, nB: Math.max(0, nB) };
 }
-/* Fit every work/rest length so the whole workout lands on the target length */
+/* Fit every work/rest length so the whole workout lands on the target length.
+   Pinned supersets, pinned exercises and pinned rests come off first; unpinned work and rests share the rest. */
 function applyFit(d) {
   if (d.mode !== "timer" || !d.autoFit) return;
-  const c = counts(d); if (!c.nW) return;
-  const r = BAL[d.balance] || BAL.even;
-  const T = Math.max(60, Math.round((num(d.targetMin) || DEF.targetMin) * 60)) - int(d.ready, 0);
-  const u = T / (c.nW + r.ex * c.nE + r.rd * c.nR + r.bl * c.nB);
-  const ex = Math.max(5, Math.round(u * r.ex)), rd = Math.max(5, Math.round(u * r.rd)), bl = Math.max(5, Math.round(u * r.bl));
-  const w = Math.max(10, Math.round((T - ex * c.nE - rd * c.nR - bl * c.nB) / c.nW));
-  d.blocks.forEach(b => { b.work = w; b.restEx = ex; b.restRound = rd; });
+  d.fit = { short: false, allSet: false, adj: 0 };
+  d.blocks.forEach(b => { b.adj = 0; });
+  const named = d.blocks.filter(b => namedEx(b).length); if (!named.length) return;
+  const tgt = Math.max(60, Math.round((num(d.targetMin) || DEF.targetMin) * 60));
+  const T = tgt - int(d.ready, 0) - segDur(d.warmup) - segDur(d.cooldown);
+  const locked = named.filter(b => fitLocked(b, d)), outer = named.filter(b => !locked.includes(b));
+  const r = restRatios(d), P = d.restLocks || {}, pe = int(P.ex, null), pr = int(P.rd, null), pb = int(P.bl, null);
+  const c = { wu: 0, wp: 0, sw: 0, nE: 0, nR: 0 };
+  outer.forEach(b => { const s = exStats(b, d); for (const k in c) c[k] += s[k]; });
+  const nB = named.length - 1, L = locked.reduce((a, b) => a + int(b.lockTotal, 0), 0);
+  const fixed = L + c.wp + c.sw + (pe ?? 0) * c.nE + (pr ?? 0) * c.nR + (pb ?? 0) * nB;
+  const denom = c.wu + (pe == null ? r.ex * c.nE : 0) + (pr == null ? r.rd * c.nR : 0) + (pb == null ? r.bl * nB : 0);
+  const u = denom > 0 ? (T - fixed) / denom : 0;
+  const ex = pe ?? Math.max(5, Math.round(u * r.ex)), rd = pr ?? Math.max(5, Math.round(u * r.rd)), bl = pb ?? Math.max(5, Math.round(u * r.bl));
+  let w = 0;
+  if (!c.wu) d.fit.allSet = true;
+  else { w = Math.round((T - L - c.wp - c.sw - ex * c.nE - rd * c.nR - bl * nB) / c.wu); if (w < 10) { w = 10; d.fit.short = true; } }
+  d.blocks.forEach(b => { b.restEx = ex; b.restRound = rd; if (c.wu && !locked.includes(b)) b.work = w; });
   d.restBlock = bl;
+  locked.forEach(b => {
+    const s = exStats(b, d), lt = int(b.lockTotal, 0);
+    const bw = Math.round((lt - s.nE * ex - s.nR * rd - s.sw - s.wp) / s.wu);
+    if (bw < 10) { b.work = 10; d.fit.short = true; return; }
+    b.work = bw; b.adj = lt - blockRaw(b, d);
+  });
+  if (!d.fit.short && !d.fit.allSet) d.fit.adj = tgt - totalAll(d);
 }
 
 const SIDE_SWITCH = 5;
 const restRatios = d => { const k = num(d.restScale); return k != null ? { ex: BAL.even.ex * k, rd: BAL.even.rd * k, bl: BAL.even.bl * k } : (BAL[d.balance] || BAL.even); };
-const exWork = (e, b) => int(e.work, null) ?? int(b.work, 1);
+const exWork = (e, b) => exPin(e) ?? int(b.work, 1);
 const exUnits = e => e.side ? 2 : 1;
 function normExercise(e) {
   const o = typeof e === "string" ? { name: e } : (e || {});
@@ -662,7 +715,7 @@ function planExercise(e) {
   if (e.side === true) r.side = true;
   return r;
 }
-const stepsSig = steps => steps.map(s => s.k[0] + s.dur).join(",");
+const stepsSig = steps => steps.map(s => s.k[0] + s.dur + (s.k === "work" ? ":" + s.bid + "." + s.eid + (s.side ? ":s" + s.side : "") : "")).join(",");
 /* @end-testable */
 /* ---------- history index ---------- */
 function rebuildIndex() {
@@ -1412,7 +1465,7 @@ function pickName(n) {
   const o = cur(); let [b, x] = sheetCtx.pick;
   if (b >= o.blocks.length) { const lb = o.blocks[o.blocks.length - 1]; o.blocks.push(mkBlock([], lb?.rounds, lb)); b = o.blocks.length - 1; x = 0; }
   const B = o.blocks[b];
-  if (x >= B.exercises.length) { B.exercises.push({ name: n, sets: emptySets(B.rounds) }); x = B.exercises.length - 1; } else B.exercises[x].name = n;
+  if (x >= B.exercises.length) { B.exercises.push({ ...normExercise(n), sets: emptySets(B.rounds) }); x = B.exercises.length - 1; } else B.exercises[x].name = n;
   touch(o); render();
   if (sheetCtx.replace) { closeSheet(); return; }
   sheetCtx.pick = nextEmpty(o, b, x) || [b, B.exercises.length];
@@ -2047,7 +2100,7 @@ async function logSession(d) {
 }
 async function finishWorkout() {
   const d = S.draft, timer = d.mode === "timer", keepReps = !timer || d.logReps;
-  const blocks = d.blocks.map((b, bi) => ({ label: "Superset " + (LET[bi] || bi + 1), rounds: b.rounds, work: int(b.work, 0), restEx: int(b.restEx, 0), restRound: int(b.restRound, 0), ...(b.lockTotal ? { lockTotal: true } : {}),
+  const blocks = d.blocks.map((b, bi) => ({ label: "Superset " + (LET[bi] || bi + 1), rounds: b.rounds, work: int(b.work, 0), restEx: int(b.restEx, 0), restRound: int(b.restRound, 0), ...lockOf(b),
     exercises: b.exercises.filter(e => e.name.trim()).map(e => ({ name: e.name.trim(), ...(planExercise(e).work ? { work: planExercise(e).work } : {}), ...(e.side === true ? { side: true } : {}), sets: e.sets.slice(0, b.rounds).map(s => ({ w: String(s.w ?? "").trim(), r: keepReps ? String(s.r ?? "").trim() : "" })) })) }))
     .filter(b => b.exercises.length);
   if (!blocks.length) { toast("Add at least one exercise before logging."); return false; }
