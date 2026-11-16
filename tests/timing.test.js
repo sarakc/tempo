@@ -201,6 +201,17 @@ test("all pinned: total is the pins plus fitted rests", () => {
   const expect = 10 + 2 * (60 + 40 * 2 + 5) + 2 * b.restEx + b.restRound + d.restBlock + 2 * 30 + d.blocks[1].restRound;
   assert.equal(T.totalAll(d), expect);
   assert.ok([b.restEx, b.restRound, d.restBlock].every(x => Number.isFinite(x) && x >= 5));
+  assert.equal(d.fit.short, false);
+});
+
+test("all pinned above the target is flagged short, durations untouched", () => {
+  const a = timerDraft({ targetMin: 5 }, [custom("b1", [ex("Plank", { work: 200 }), ex("Hold", { work: 200 })])]); T.applyFit(a);
+  assert.equal(a.fit.allSet, true); assert.equal(a.fit.short, true); assert.equal(a.fit.adj, 0);
+  assert.ok(T.totalAll(a) > 300);
+  assert.ok(T.buildSteps(a).filter(s => s.k === "work").every(s => s.dur === 200));
+  const b = timerDraft({ targetMin: 5, warmup: { name: "Warm-up", dur: 600 } }, [custom("b1", [ex("Plank", { work: 20 })], 1)]); T.applyFit(b);
+  assert.equal(b.fit.allSet, true); assert.equal(b.fit.short, true);
+  assert.ok(finite(T.buildSteps(b)));
 });
 
 test("fixed superset with every exercise pinned ignores its total", () => {

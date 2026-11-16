@@ -695,6 +695,7 @@ function applyFit(d) {
     if (bw < 10) { b.work = 10; d.fit.short = true; return; }
     b.work = bw; b.adj = lt - blockRaw(b, d);
   });
+  if (d.fit.allSet && totalAll(d) > tgt) d.fit.short = true; // pins alone exceed the target: flag only
   if (!d.fit.short && !d.fit.allSet) d.fit.adj = tgt - totalAll(d);
 }
 
