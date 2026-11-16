@@ -456,6 +456,7 @@ button.orow:active{transform:none;opacity:.6}
 "use strict";
 /* ---------- helpers ---------- */
 const $ = s => document.querySelector(s);
+/* @testable */
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid = () => Math.random().toString(36).slice(2, 10);
 const LET = "ABCDEFGHIJ";
@@ -466,6 +467,7 @@ const fmtDate = (ds, long) => { if (!ds) return ""; const [y, m, d] = ds.split("
 const num = v => { const n = parseFloat(String(v ?? "").replace(",", ".")); return isFinite(n) ? n : null; };
 const int = (v, d) => { const n = parseInt(v, 10); return isFinite(n) && n >= 0 ? n : d; };
 const clone = o => JSON.parse(JSON.stringify(o));
+/* @end-testable */
 const lsGet = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 const lsSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 const slug = s => (String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 36) || "workout") + "-" + uid().slice(0, 5);
@@ -523,9 +525,11 @@ const CLABEL = {
   alarmSound: v => ({ bowl: "Rising bowl", beeps: "Beeps" })[v], alarmSnooze: v => `${v} min`, longEvery: v => `After every ${v} rounds`
 };
 const GUIDES = { even: [["Breathe in", 5, "in"], ["Breathe out", 5, "out"]], box: [["Breathe in", 4, "in"], ["Hold", 4, "top"], ["Breathe out", 4, "out"], ["Hold", 4, "bottom"]], "478": [["Breathe in", 4, "in"], ["Hold", 7, "top"], ["Breathe out", 8, "out"]] };
+/* @testable */
 const LENS = [5, 10, 20, 30, 45, 60];
 const SHAPES = { keep: null, "2+2": [2, 2], "3+3": [3, 3], "3+3+2": [3, 3, 2], "4+4": [4, 4] };
 const BAL = { work: { ex: .2, rd: .8, bl: 1.5, label: "More work" }, even: { ex: 1 / 3, rd: 4 / 3, bl: 2, label: "Balanced" }, rest: { ex: .5, rd: 2, bl: 3, label: "More rest" } };
+/* @end-testable */
 
 /* ---------- state ---------- */
 const S = {
@@ -594,6 +598,7 @@ function objFromPlan(t) {
 const tplById = id => S.templates.find(t => t.id === id);
 const stripId = t => { const c = clone(t); delete c.id; return c; };
 
+/* @testable */
 /* ---------- timer math ---------- */
 function buildSteps(d) {
   const steps = [];
@@ -636,6 +641,8 @@ function applyFit(d) {
   d.restBlock = bl;
 }
 
+const stepsSig = steps => steps.map(s => s.k[0] + s.dur).join(",");
+/* @end-testable */
 /* ---------- history index ---------- */
 function rebuildIndex() {
   const m = new Map();
@@ -1133,7 +1140,6 @@ function viewMeditate() {
 }
 
 /* ---------- sticky start bar ---------- */
-const stepsSig = steps => steps.map(s => s.k[0] + s.dur).join(",");
 function resumeOK(d) {
   const r = d && d.resume; if (!r) return null;
   const steps = buildSteps(d); if (r.sig !== stepsSig(steps) || r.i >= steps.length) return null;
