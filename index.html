@@ -2193,7 +2193,7 @@ function adjustStep(d) {
   if (!T || T.done || T.ask || T.mode !== "workout") return;
   const st = T.steps[T.i], rem = T.paused ? T.remaining : T.endAt - Date.now();
   if (d < 0 && rem <= 1000) { gotoStep(T.i + 1); return; }
-  const by = d < 0 ? -Math.min(-d, Math.floor((rem - 1000) / 1000)) : d;
+  const by = d < 0 ? -Math.min(-d, Math.ceil((rem - 1000) / 1000)) : d; // whole seconds, down to under 1s left (the display shows 1)
   if (!by) return;
   T.adj[T.i] = (T.adj[T.i] || 0) + by; if (!T.adj[T.i]) delete T.adj[T.i]; st.dur = Math.max(1, st.dur + by);
   if (T.paused) T.remaining += by * 1000; else { T.endAt += by * 1000; T.remaining = T.endAt - Date.now(); }
