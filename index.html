@@ -597,7 +597,7 @@ const S = {
   library: null, settings: {}, templates: [], workouts: [], lastIdx: new Map(),
   draft: null, edit: null, open: {}, progEx: "", muted: !!lsGet("wt.muted"), voice: lsGet("wt.voice") !== false,
   pickCat: "", pickQ: "", pickFlash: "", wq: "", wf: "", loaded: { lib: false, wk: false, tpl: false },
-  mode: lsGet("tempo.mode") || "workout", sounds: [], hf: "all", adv: false, lenCustom: false, showLog: false, cardLen: {}, fillCats: null, fillShape: "keep", prevTab: "today", te: null, drag: null, renderPending: false
+  mode: lsGet("tempo.mode") || "workout", sounds: [], hf: "all", adv: false, lenCustom: false, showLog: false, cardLen: {}, fillCats: null, fillShape: "keep", prevTab: "today", te: null, drag: null, renderPending: false, wtTxt: null
 };
 if (S.tab === "edit") S.tab = "plans";
 if (S.tab === "library") S.tab = "settings";
@@ -845,6 +845,8 @@ function rebuildIndex() {
   }
   S.lastIdx = m;
 }
+/* The Weight step field's text: what was typed while it still means the saved value, so a redraw keeps "2." or "0." mid-typing */
+const wtStepText = st => S.wtTxt != null && (num(S.wtTxt) > 0 ? num(S.wtTxt) : null) === (num(st.wtStep) > 0 ? num(st.wtStep) : null) ? S.wtTxt : String(st.wtStep ?? "");
 const wtStep = () => { const st = settings(); return num(st.wtStep) > 0 ? num(st.wtStep) : (st.unit === "kg" ? 2.5 : 5); };
 const tryFor = name => { const v = S.lastIdx.get((name || "").trim().toLowerCase()); const x = v && suggestWeight(v, wtStep()); return x ? ` · try ${x}` : ""; };
 const lastFor = name => (S.lastIdx.get((name || "").trim().toLowerCase()) || [])[0] || null;
@@ -1659,7 +1661,7 @@ function viewSettings() {
   <div class="card">
     <div class="fld"><span>Weight units</span>
       <div class="seg"><button data-act="unit" data-u="lb" class="${st.unit === "lb" ? "on" : ""}">lb</button><button data-act="unit" data-u="kg" class="${st.unit === "kg" ? "on" : ""}">kg</button></div></div>
-    <div class="fld"><span>Weight step</span><input class="in" inputmode="decimal" data-wtstep value="${esc(st.wtStep ?? "")}" placeholder="${st.unit === "kg" ? "2.5" : "5"}" style="width:72px;text-align:right" aria-label="Weight step"></div>
+    <div class="fld"><span>Weight step</span><input class="in" inputmode="decimal" data-wtstep data-k="s-wtStep" value="${esc(wtStepText(st))}" placeholder="${st.unit === "kg" ? "2.5" : "5"}" style="width:72px;text-align:right" aria-label="Weight step"></div>
     <div class="fld" style="margin-bottom:4px"><span>Default length for timed workouts</span></div>
     <div class="lens" style="grid-template-columns:repeat(6,minmax(0,1fr))">${LENS.map(v => `<button data-act="deflen" data-v="${v}" class="${num(st.targetMin) === v ? "on" : ""}">${v}<small>min</small></button>`).join("")}</div>
     ${tg("autoFit", "Fit new timed workouts to that length", st.autoFit)}
@@ -2780,7 +2782,7 @@ document.addEventListener("input", e => {
   if (t.dataset.set) { const [b, x, s, f] = t.dataset.set.split(","); S.draft.blocks[+b].exercises[+x].sets[+s][f] = t.value; if (!S.draft.startedAt) S.draft.startedAt = Date.now(); saveDraftSoon(); return; }
   if (t.dataset.tset) { const [b, x, s, f] = t.dataset.tset.split(","); S.draft.blocks[+b].exercises[+x].sets[+s][f] = t.value; saveDraftSoon(); return; }
   if (t.dataset.blk) { const [b, f] = t.dataset.blk.split(","); if (f === "total") return; o.blocks[+b][f] = t.value.replace(/[^0-9]/g, ""); touch(o); updTimerUI(); return; }
-  if ("wtstep" in t.dataset) { const v = num(t.value); S.settings = Object.assign({}, S.settings, { wtStep: v > 0 ? v : null }); saveSettingsSoon(); return; }
+  if ("wtstep" in t.dataset) { const v = num(t.value); S.wtTxt = t.value; S.settings = Object.assign({}, S.settings, { wtStep: v > 0 ? v : null }); saveSettingsSoon(); return; }
   if (t.dataset.setting) { const k = t.dataset.setting; S.settings = Object.assign({}, S.settings, { [k]: t.type === "checkbox" ? t.checked : Math.max(k === "rounds" ? 1 : 0, (k === "targetMin" ? num(t.value) : int(t.value, DEF[k])) ?? DEF[k]) }); saveSettingsSoon(); if (t.type === "checkbox") { if (k.startsWith("alarm")) rearmIfNeeded(); render(); } return; }
 });
 document.addEventListener("change", e => {
