@@ -2201,7 +2201,7 @@ function prevStep() { const st = T.steps[T.i]; const el = st.dur * 1000 - T.rema
 const elapsedSec = () => T ? Math.round(((T.done ? T.doneAt : (T.paused ? T.pausedAt : Date.now())) - T.started - T.pausedMs) / 1000) : 0;
 function finishTimer(early) {
   if (T.paused && T.pausedAt) { T.pausedMs += Date.now() - T.pausedAt; T.pausedAt = null; }
-  T.done = true; T.early = !!early; T.ask = false; T.doneAt = Date.now(); clearInterval(T.int); wakeOff(); bgAudioOff();
+  T.done = true; T.early = !!early; T.ask = false; T.doneAt = Date.now(); clearInterval(T.int); wakeOff();
   if (T.mode === "workout") { S.draft.durationSec = elapsedSec(); delete S.draft.resume; saveDraftSoon(); }
   else T.doneData = doneDataFor(early);
   if (!early) {
@@ -2210,6 +2210,7 @@ function finishTimer(early) {
     else { playSound(settings().sMedEnd, 0.5); buzz([300]); }
   }
   else try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {}
+  bgAudioOff(); // after the final cue has started, so a locked phone doesn't suspend audio before it plays
   drawTimer(true);
 }
 function closeTimer() { if (T) clearInterval(T.int); T = null; wakeOff(); bgAudioOff(); try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {} $("#timer").classList.remove("open"); render(); }
