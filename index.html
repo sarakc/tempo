@@ -2135,10 +2135,10 @@ function cue(prefix) {
   }
   playSound(s.sWorkRest); buzz([80, 60, 80]);
   if (st.k === "seg") { say(prefix + st.name); return; }
-  const n = nextWorkIdx(T.i), name = n >= 0 ? exName(T.steps[n]) : "";
+  const n = nextWorkIdx(T.i), name = n >= 0 ? exName(T.steps[n]) : "", nx = T.steps[T.i + 1];
   const p = phaseInfo(T.i);
   if (st.sub === "side") say(prefix + "Switch sides");
-  else if (st.sub === "ready") say(prefix + "Get ready. First up, " + name);
+  else if (st.sub === "ready") say(prefix + "Get ready. First up, " + (nx?.k === "seg" ? nx.name : name)); // a warm-up comes before the first exercise
   else if (st.sub === "switch") say(prefix + "Next, " + name);
   else say(prefix + "Rest. " + p.sub + ". " + name);
 }
@@ -2344,8 +2344,10 @@ function drawTimer(full) {
       const reps = !!S.draft.logReps, prevI = prevWorkIdx(T.i), prev = !isWork && prevI >= 0 ? T.steps[prevI] : null;
       let logs = "";
       if (!isWork && st.sub !== "side") { if (reps && prev) logs += `<div class="tmeta" style="width:100%">Reps for ${esc(exName(prev))}:</div>` + logInputs(prev, "r"); if (tgt) logs += (reps && prev ? `<div class="tmeta" style="width:100%;margin-top:4px">Weight for ${esc(exName(tgt))}:</div>` : "") + logInputs(tgt, "w"); }
-      const nxS = T.steps[T.i + 1], nextName = isWork && nxS?.sub === "side" ? "Switch sides" : ups[0] || (nxS?.k === "seg" ? nxS.name : "");
-      const segMain = st.k === "seg" ? `<div class="tname2">${esc(st.name)}</div><div class="tmeta2">${tgt ? `Up next: ${esc(stName(tgt))}` : "Last stretch"}</div>` : "";
+      const nxS = T.steps[T.i + 1], segNext = st.sub === "ready" && nxS?.k === "seg";
+      const nextName = isWork && nxS?.sub === "side" ? "Switch sides" : segNext ? nxS.name : ups[0] || (nxS?.k === "seg" ? nxS.name : "");
+      const segMain = st.k === "seg" ? `<div class="tname2">${esc(st.name)}</div><div class="tmeta2">${tgt ? `Up next: ${esc(stName(tgt))}` : "Last stretch"}</div>`
+        : segNext ? `<div class="tlab3">Up next</div><div class="tname2">${esc(nxS.name)}</div><div class="tmeta2">${fmt(nxS.dur)}${tgt ? ` · then ${esc(stName(tgt))}` : ""}</div>` : "";
       const sub = !T.paused && !isWork && p.sub && st.sub !== "switch" ? p.sub : "";
       body = `<div class="tlab2">${T.paused ? "Paused" : esc(p.label)}${sub ? ` <span>· ${esc(sub)}</span>` : ""}</div>
         <div class="tnumrow"><button class="tadj" data-act="t-minus" aria-label="Take 15 seconds off">−15</button><div class="tbig${rem >= 60 ? " mm" : ""}" id="tnum">${numTxt}</div><button class="tadj" data-act="t-plus" aria-label="Add 15 seconds">+15</button></div>
