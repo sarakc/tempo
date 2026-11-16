@@ -216,8 +216,8 @@ table.pt td:first-child{white-space:nowrap;color:var(--muted)}
 /* toast & rest pill */
 #toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.18);font-weight:600;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:60;max-width:90vw;text-align:center}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-#toast.undo{pointer-events:auto;white-space:nowrap}
-#toast button{all:unset;cursor:pointer;margin-left:14px;font-weight:700;text-decoration:underline;padding:4px 2px}
+#toast.undo{pointer-events:auto;width:max-content;bottom:calc(150px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:14px;text-align:left}
+#toast button{all:unset;cursor:pointer;flex:none;font-weight:700;text-decoration:underline;padding:4px 2px}
 #restpill{position:fixed;right:16px;bottom:calc(80px + env(safe-area-inset-bottom));z-index:20;display:none}
 #restpill .rp{display:flex;align-items:center;gap:2px;background:var(--ink);color:var(--bg);border-radius:999px;padding:4px;box-shadow:0 8px 24px rgba(0,0,0,.22)}
 #restpill button{border:0;background:none;color:inherit;font-weight:700;padding:10px 14px;border-radius:999px;display:flex;align-items:center;gap:6px}
@@ -2295,6 +2295,7 @@ function snapUndo(msg, pre) {
   if (S.edit) S.undo.eid = S.edit.id;
   toast(msg, true);
 }
+function dropUndo() { if (!S.undo) return; S.undo = null; $("#toast").classList.remove("show", "undo"); }
 function doUndo() {
   const u = S.undo; S.undo = null; $("#toast").classList.remove("show", "undo");
   if (!u || Date.now() - u.at > 6500) return;
@@ -2303,7 +2304,7 @@ function doUndo() {
   const o = normDraft(clone(u.obj)); if (u.plan) S.edit.obj = o; else S.draft = o;
   touch(o); render();
 }
-function setDraft(d) { S.draft = normDraft(d); applyFit(S.draft); S.showLog = false; S.lenCustom = false; saveDraftSoon(); }
+function setDraft(d) { dropUndo(); S.draft = normDraft(d); applyFit(S.draft); S.showLog = false; S.lenCustom = false; saveDraftSoon(); }
 function goToday() { S.tab = "today"; lsSet("wt.tab", "today"); window.scrollTo(0, 0); render(); }
 function useOnToday(nd, msg, then) {
   nd.date = todayStr();
@@ -2510,6 +2511,7 @@ document.addEventListener("submit", e => {
 });
 document.addEventListener("input", e => {
   const t = e.target, o = cur();
+  if (t.dataset.set !== undefined) dropUndo();
   if (t.id === "pq") { S.pickQ = t.value; renderPicker(); return; }
   if ("teIn" in t.dataset) { const p = $("#te-prev"); if (p && S.te) p.innerHTML = tePreview(S.te, parseSecs(t.value)); return; }
   if (t.dataset.stext) { S.settings = Object.assign({}, S.settings, { [t.dataset.stext]: t.value }); saveSettingsSoon(); return; }
