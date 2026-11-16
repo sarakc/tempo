@@ -112,6 +112,16 @@ select.in{appearance:none;background-image:linear-gradient(45deg,transparent 50%
 .ex:first-of-type{border-top:0}
 .exn{display:flex;align-items:center;gap:4px}
 .exn .order{font-size:12px;color:var(--muted);font-weight:700;width:22px;flex:none}
+/* drag and drop: the grip and the superset badge are the only handles (touch targets widened by ::after) */
+.grip{position:relative;flex:none;width:14px;height:32px;margin-left:-4px;display:grid;place-items:center;color:var(--muted);font-size:13px;letter-spacing:-3px;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.grip::after{content:"";position:absolute;inset:0 -9px}
+.badge[data-drag]{position:relative;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.badge[data-drag]::after{content:"";position:absolute;inset:-5px}
+body.dragging,body.dragging *{cursor:grabbing !important;user-select:none;-webkit-user-select:none}
+.dghost{position:fixed;z-index:70;pointer-events:none;margin:0;box-shadow:0 12px 32px rgba(0,0,0,.18)}
+.dghost.gex{background:var(--card);border:1px solid var(--hair);border-radius:var(--r-sm);padding-left:10px;padding-right:10px}
+.dph{border:1.5px dashed var(--track);border-radius:var(--r-sm)}
+.dph.phb{border-radius:var(--r);margin-bottom:12px}
 .exn .name{flex:1;text-align:left;border:0;background:none;font-weight:600;padding:4px 0;font-size:15.5px;min-width:0}
 .exn .name.empty{color:var(--muted);text-decoration:underline;text-underline-offset:3px}
 .hint{font-size:12px;color:var(--muted);margin:0 0 6px 22px}
@@ -583,7 +593,7 @@ const S = {
   library: null, settings: {}, templates: [], workouts: [], lastIdx: new Map(),
   draft: null, edit: null, open: {}, progEx: "", muted: !!lsGet("wt.muted"), voice: lsGet("wt.voice") !== false,
   pickCat: "", pickQ: "", pickFlash: "", wq: "", wf: "", loaded: { lib: false, wk: false, tpl: false },
-  mode: lsGet("tempo.mode") || "workout", sounds: [], hf: "all", adv: false, lenCustom: false, showLog: false, cardLen: {}, fillCats: null, fillShape: "keep", prevTab: "today", te: null
+  mode: lsGet("tempo.mode") || "workout", sounds: [], hf: "all", adv: false, lenCustom: false, showLog: false, cardLen: {}, fillCats: null, fillShape: "keep", prevTab: "today", te: null, drag: null, renderPending: false
 };
 if (S.tab === "edit") S.tab = "plans";
 if (S.tab === "library") S.tab = "settings";
@@ -1015,11 +1025,12 @@ async function init() {
   render();
 }
 let softT = null;
-function softRender() { clearTimeout(softT); softT = setTimeout(render, 40); }
+function softRender() { if (S.drag?.active) { S.renderPending = true; return; } clearTimeout(softT); softT = setTimeout(render, 40); }
 
 /* ---------- render ---------- */
 function folderList() { return [...new Set(S.templates.map(t => (t.folder || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b)); }
 function render() {
+  if (S.drag?.active) { S.renderPending = true; return; } // a drag owns the DOM; dragEnd redraws once
   if (S.tab === "edit" && !S.edit) S.tab = "plans";
   const navTab = { edit: "plans", compose: "today" }[S.tab] || S.tab;
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === navTab));
@@ -1129,6 +1140,92 @@ let tlDown = false;
 document.addEventListener("pointerdown", e => { const tl = e.target.closest && e.target.closest("#tl"); if (!tl) return; tlDown = true; try { tl.setPointerCapture(e.pointerId); } catch {} tlPick(e.clientX); });
 document.addEventListener("pointermove", e => { if (tlDown) tlPick(e.clientX); });
 ["pointerup", "pointercancel"].forEach(t => document.addEventListener(t, () => { tlDown = false; }));
+
+/* ---------- drag and drop: exercise grips and superset badges ---------- */
+let dragRAF = 0, dragClickAt = 0;
+document.addEventListener("pointerdown", e => {
+  const h = e.target.closest && e.target.closest("[data-drag]");
+  if (!h || S.drag?.active || (e.pointerType === "mouse" && e.button !== 0)) return;
+  const o = cur(), kind = h.dataset.drag, b = +h.dataset.b, x = +h.dataset.e;
+  const id = kind === "ex" ? o.blocks[b]?.exercises[x]?.id : o.blocks[b]?.id; if (!id) return;
+  S.drag = { kind, from: kind === "ex" ? { b, e: x } : b, id, o, h, ghost: null, placeholder: null, pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, y: e.clientY, active: false };
+  try { h.setPointerCapture(e.pointerId); } catch {}
+  if (e.pointerType === "mouse") e.preventDefault(); // no text selection or focus change
+});
+document.addEventListener("pointermove", e => {
+  const d = S.drag; if (!d || e.pointerId !== d.pointerId) return;
+  if (!d.active) { if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < 6) return; dragStart(); if (!S.drag) return; }
+  e.preventDefault(); d.y = e.clientY; d.ghost.style.top = (d.y - d.offY) + "px";
+});
+document.addEventListener("pointerup", e => { if (S.drag && e.pointerId === S.drag.pointerId) dragEnd(true); });
+document.addEventListener("pointercancel", e => { if (S.drag && e.pointerId === S.drag.pointerId) dragEnd(false); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && S.drag) dragEnd(false); });
+window.addEventListener("blur", () => { if (S.drag) dragEnd(false); });
+window.addEventListener("click", e => { if (Date.now() - dragClickAt < 400) { e.stopPropagation(); e.preventDefault(); } }, true); // the click a drop can leave behind
+/* Lift the row (or superset card): a fixed ghost follows the finger, a same-height placeholder marks the landing spot */
+function dragStart() {
+  const d = S.drag, src = d.h.isConnected && d.h.closest(d.kind === "ex" ? ".ex" : "[data-sb]");
+  if (!src) { S.drag = null; return; }
+  const a = document.activeElement; if (a && a !== document.body && a.blur) a.blur(); // typed values are already in the model
+  const r = src.getBoundingClientRect(), g = src.cloneNode(true), pad = d.kind === "ex" ? 10 : 0;
+  const gi = g.querySelectorAll("input,textarea"); src.querySelectorAll("input,textarea").forEach((n, i) => { gi[i].value = n.value; });
+  [g, ...g.querySelectorAll("*")].forEach(n => ["id", "data-k", "data-sb", "data-drag", "data-act", "data-set", "data-blk"].forEach(k => n.removeAttribute(k)));
+  g.classList.add("dghost"); if (pad) g.classList.add("gex"); g.setAttribute("aria-hidden", "true"); g.inert = true;
+  Object.assign(g.style, { left: (r.left - pad) + "px", top: r.top + "px", width: (r.width + 2 * pad) + "px" });
+  const ph = document.createElement("div"); ph.className = "dph" + (pad ? "" : " phb"); ph.style.height = r.height + "px";
+  src.before(ph); src.style.display = "none"; document.body.appendChild(g);
+  Object.assign(d, { active: true, src, ghost: g, placeholder: ph, offY: d.startY - r.top, to: d.from });
+  document.body.classList.add("dragging"); buzz(15);
+  d.ghost.style.top = (d.y - d.offY) + "px";
+  dragRAF = requestAnimationFrame(dragTick);
+}
+/* Every frame: scroll near the top/bottom edge, then move the placeholder to where the row would land */
+function dragTick() {
+  const d = S.drag; if (!d || !d.active) return;
+  const E = 60, H = window.innerHeight, v = d.y < E ? d.y - E : d.y > H - E ? d.y - (H - E) : 0;
+  if (v) window.scrollBy(0, Math.max(-16, Math.min(16, Math.round(v / 3))));
+  dragTarget(d);
+  dragRAF = requestAnimationFrame(dragTick);
+}
+/* d.to uses moveExercise/moveBlock indexes: superset b as it is now (blocks.length = new superset),
+   e/position counted among the rows that stay (the lifted one is hidden and skipped) */
+function dragTarget(d) {
+  const main = $("#main"), y = d.y, add = main.querySelector('[data-act="add-block"]');
+  const mid = n => { const r = n.getBoundingClientRect(); return r.top + r.height / 2; };
+  const cards = [...main.querySelectorAll("[data-sb]")].filter(c => c !== d.src);
+  let to, before;
+  if (d.kind === "blk") {
+    let i = 0; while (i < cards.length && mid(cards[i]) < y) i++;
+    to = i; before = cards[i] || add;
+  } else {
+    const last = cards[cards.length - 1];
+    if (!last || y > last.getBoundingClientRect().bottom + 6) { to = { b: d.o.blocks.length, e: 0 }; before = add; }
+    else {
+      const c = cards.find(c => y < c.getBoundingClientRect().bottom + 6), rows = [...c.querySelectorAll(".ex")].filter(n => n !== d.src);
+      let i = 0; while (i < rows.length && mid(rows[i]) < y) i++;
+      to = { b: +c.dataset.sb, e: i }; before = rows[i] || c.querySelector('[data-act="add-ex"]');
+    }
+  }
+  if (before && d.placeholder.nextElementSibling !== before) before.before(d.placeholder);
+  d.to = to;
+}
+function dragEnd(commit) {
+  const d = S.drag; if (!d) return;
+  if (d.active && commit) dragTarget(d);
+  S.drag = null; cancelAnimationFrame(dragRAF);
+  try { d.h.releasePointerCapture(d.pointerId); } catch {}
+  const pend = S.renderPending; S.renderPending = false;
+  if (!d.active) return;
+  d.ghost.remove(); d.placeholder.remove(); d.src.style.display = ""; document.body.classList.remove("dragging"); dragClickAt = Date.now();
+  const o = cur(), f = d.from, to = d.to;
+  const still = o === d.o && (d.kind === "ex" ? o.blocks[f.b]?.exercises[f.e]?.id === d.id : o.blocks[f]?.id === d.id); // a sync redraw may have changed things
+  const same = d.kind === "ex" ? (to.b === f.b && to.e === f.e) || (to.b === o.blocks.length && f.b === o.blocks.length - 1 && o.blocks[f.b].exercises.length === 1) : to === f;
+  if (commit && still && !same) {
+    snapUndo("Moved"); if (S.te) closeSheet();
+    if (d.kind === "ex") moveExercise(o, f, to); else moveBlock(o, f, to);
+    normDraft(o); touch(o); render(); // normDraft pads sets when the new superset has more rounds
+  } else if (pend) render();
+}
 function lenChips(o) {
   const fit = o.autoFit, tm = num(o.targetMin), custom = fit && (S.lenCustom || !LENS.includes(tm));
   let h = `<div class="lens">` + LENS.map(v => `<button data-act="len" data-v="${v}" class="${fit && !custom && tm === v ? "on" : ""}">${v}<small>min</small></button>`).join("") +
@@ -1197,8 +1294,8 @@ function viewBuilder(o, opt) {
   h += `<div class="fillrow"><button class="btn sm" data-act="fill" style="display:flex;align-items:center;gap:6px">${IC.shuffle}Fill for me</button><span class="small muted">Random picks from your library</span></div>`;
   o.blocks.forEach((b, bi) => {
     const R = b.rounds, L = LET[bi] || bi + 1;
-    h += `<div class="card">
-      <div class="bh${timer && namedEx(b).length ? " tm" : ""}"><div class="badge">${L}</div><div class="bl">Superset ${L}</div>
+    h += `<div class="card" data-sb="${bi}">
+      <div class="bh${timer && namedEx(b).length ? " tm" : ""}"><div class="badge" data-drag="blk" data-b="${bi}">${L}</div><div class="bl">Superset ${L}</div>
         <div class="stepper"><button data-act="rounds" data-b="${bi}" data-d="-1" aria-label="Fewer rounds">−</button><span>${R} round${R > 1 ? "s" : ""}</span><button data-act="rounds" data-b="${bi}" data-d="1" aria-label="More rounds">+</button></div>
         ${timer && namedEx(b).length ? blkChip(o, bi) : ""}
         <button class="icon" data-act="rm-block" data-b="${bi}" aria-label="Remove superset">${IC.trash}</button></div>`;
@@ -1213,7 +1310,7 @@ function viewBuilder(o, opt) {
     }
     b.exercises.forEach((ex, ei) => {
       const last = showGrid && ex.name ? lastFor(ex.name) : null;
-      h += `<div class="ex"><div class="exn"><span class="order">${L}${ei + 1}</span>
+      h += `<div class="ex"><div class="exn"><span class="grip" data-drag="ex" data-b="${bi}" data-e="${ei}" aria-hidden="true">⋮⋮</span><span class="order">${L}${ei + 1}</span>
         <button class="name ${ex.name ? "" : "empty"}" data-act="pick" data-b="${bi}" data-e="${ei}">${ex.name ? esc(ex.name) : "+ Choose exercise"}</button>
         ${timer && ex.name.trim() ? exChip(o, bi, ei) : ""}
         <button class="icon" data-act="rm-ex" data-b="${bi}" data-e="${ei}" aria-label="Remove exercise">✕</button></div>`;
@@ -2434,7 +2531,7 @@ document.addEventListener("click", e => {
       snapUndo("Moved"); const solo = o.blocks[B].exercises.length === 1;
       moveExercise(o, { b: B, e: E }, to);
       S.te = { t: "ex", b: solo && to.b > B ? to.b - 1 : to.b, e: to.e };
-      touch(o); render(); renderTimeEditor(); break;
+      normDraft(o); touch(o); render(); renderTimeEditor(); break; // normDraft pads sets for a superset with more rounds
     }
     case "pick": openPicker(bi, ei); break;
     case "pcat": S.pickCat = t.dataset.c; renderPicker(); break;
