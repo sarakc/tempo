@@ -137,7 +137,10 @@ select.in{appearance:none;background-image:linear-gradient(45deg,transparent 50%
 .totrow{display:flex;justify-content:space-between;align-items:baseline;margin:10px 0 2px}
 .totrow b{font-family:"Space Grotesk",system-ui,sans-serif;font-size:22px}
 .tl{display:flex;height:12px;border-radius:6px;overflow:hidden;gap:1px;margin:8px 0 4px;background:var(--bg2)}
-.tl i{display:block;min-width:1px}
+.tl{touch-action:pan-y;cursor:pointer}
+.tl i{display:block;min-width:1px;transition:opacity .12s}
+.tl.hassel i:not(.sel){opacity:.35}
+.tlstrip{display:block;width:100%;text-align:left;font:inherit;font-weight:600;font-size:14px;color:var(--ink);background:none;border:1px solid var(--line,var(--bg2));border-radius:8px;padding:8px 10px;margin:4px 0}
 .tl i.w{background:var(--tl-w)} .tl i.r{background:var(--tl-r)} .tl i.g{background:var(--tl-g)}
 .legend{display:flex;gap:12px;font-size:11.5px;color:var(--muted)}
 .legend span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px;background:var(--c)}
@@ -554,6 +557,7 @@ const BAL = { work: { ex: .2, rd: .8, bl: 1.5, label: "More work" }, even: { ex:
 
 /* ---------- state ---------- */
 const S = {
+  tlSel: null, tlO: null,
   db: null, dbState: "loading", tab: lsGet("wt.tab") || "today",
   library: null, settings: {}, templates: [], workouts: [], lastIdx: new Map(),
   draft: null, edit: null, open: {}, progEx: "", muted: !!lsGet("wt.muted"), voice: lsGet("wt.voice") !== false,
@@ -1004,7 +1008,7 @@ function render() {
   const v = { today: viewTodayAny, compose: () => viewBuilder(S.draft, { compose: true }), edit: () => viewBuilder(S.edit.obj), plans: viewPlans, history: viewHistory, settings: () => viewSettings() + viewLibrary() }[S.tab] || (() => viewBuilder(S.draft));
   $("#main").innerHTML = v();
   if (k) { const n = document.querySelector(`[data-k="${CSS.escape(k)}"]`); if (n) { n.focus({ preventScroll: true }); try { if (ss != null) n.setSelectionRange(ss, se); } catch {} } }
-  renderRest(); renderBar(); syncUI();
+  renderRest(); renderBar(); syncUI(); tlSync();
 }
 function srcOptions() {
   const tpls = S.templates, folders = folderList(), star = tpls.filter(t => t.starred);
@@ -1052,10 +1056,51 @@ function blockSum(b, o) {
   if (!b.exercises.some(e => e.name.trim())) return "Add exercises to this superset";
   return `<b>${fmt(blockTotal(b, o))}</b> for this superset`;
 }
+/* Which timeline steps does the selection cover: the exercise (every round), the rest type, or the segment */
+const REST_SUB = { switch: "ex", round: "rd", block: "bl" };
+function tlMatch(sel, s) {
+  if (!sel) return false;
+  if (sel.t === "ex") return s.k === "work" && s.b === sel.b && s.e === sel.e;
+  if (sel.t === "rest") return s.k === "rest" && REST_SUB[s.sub] === sel.k;
+  return sel.t === "seg" && s.k === "seg" && s.sub === sel.which;
+}
 function timeline(o) {
   const st = buildSteps(o); if (!st.length) return "";
-  return st.map(s => `<i class="${s.k === "work" ? "w" : s.k === "ready" ? "g" : "r"}" style="flex:${s.dur}"></i>`).join("");
+  if (S.tlSel && (S.tlO !== o || !teInfo(o, S.tlSel))) S.tlSel = null;
+  return st.map((s, i) => `<i data-si="${i}" class="${s.k === "work" ? "w" : s.k === "ready" ? "g" : "r"}${tlMatch(S.tlSel, s) ? " sel" : ""}" style="flex:${s.dur}"></i>`).join("");
 }
+const TL_REST = { ex: "Switch", rd: "Round rest", bl: "Between supersets" };
+function tlStrip(o) {
+  const sel = S.tlSel, I = sel && teInfo(o, sel); if (!I) return "";
+  const n = buildSteps(o).filter(s => tlMatch(sel, s) && s.side !== 2).length;
+  const txt = sel.t === "ex" ? `${I.title} · ${sx(I.v)} × ${n} round${n === 1 ? "" : "s"}` : sel.t === "rest" ? `${TL_REST[sel.k]} · ${sx(I.v)} × ${n}` : `${I.title} · ${fmt(I.v)}`;
+  return `<button class="tlstrip" data-act="te-open" data-te="${teAttr(sel)}">${esc(txt)}</button>`;
+}
+function tlSync() {
+  const o = cur(), tl = $("#tl"); if (!tl) return;
+  const st = buildSteps(o);
+  tl.classList.toggle("hassel", !!S.tlSel);
+  [...tl.children].forEach((n, i) => n.classList.toggle("sel", tlMatch(S.tlSel, st[i] || {})));
+  const el = $("#tl-strip"); if (el) el.innerHTML = tlStrip(o);
+}
+/* Map an x position to the nearest step; ready and side switches don't select */
+function tlPick(x) {
+  const o = cur(), tl = $("#tl"), st = buildSteps(o); if (!tl || !st.length) return;
+  let best = -1, bd = 1e9;
+  [...tl.children].forEach((n, i) => { const r = n.getBoundingClientRect(), d = x < r.left ? r.left - x : x > r.right ? x - r.right : 0; if (d < bd) { bd = d; best = i; } });
+  const s = st[best]; if (!s) return;
+  let sel = null;
+  if (s.k === "work") sel = { t: "ex", b: s.b, e: s.e };
+  else if (s.k === "rest" && REST_SUB[s.sub]) sel = { t: "rest", k: REST_SUB[s.sub] };
+  else if (s.k === "seg") sel = { t: "seg", which: s.sub };
+  if (!sel) return;
+  if (S.tlSel && JSON.stringify(S.tlSel) === JSON.stringify(sel)) return;
+  S.tlSel = sel; S.tlO = o; tlSync();
+}
+let tlDown = false;
+document.addEventListener("pointerdown", e => { const tl = e.target.closest && e.target.closest("#tl"); if (!tl) return; tlDown = true; try { tl.setPointerCapture(e.pointerId); } catch {} tlPick(e.clientX); });
+document.addEventListener("pointermove", e => { if (tlDown) tlPick(e.clientX); });
+["pointerup", "pointercancel"].forEach(t => document.addEventListener(t, () => { tlDown = false; }));
 function lenChips(o) {
   const fit = o.autoFit, tm = num(o.targetMin), custom = fit && (S.lenCustom || !LENS.includes(tm));
   let h = `<div class="lens">` + LENS.map(v => `<button data-act="len" data-v="${v}" class="${fit && !custom && tm === v ? "on" : ""}">${v}<small>min</small></button>`).join("") +
@@ -1099,7 +1144,7 @@ function viewBuilder(o, opt) {
   if (timer) {
     h += `<div class="card"><div class="ttl">${plan ? "How long?" : "Timing"}</div>${plan ? lenChips(o) : `<div class="small muted" style="margin:-4px 0 8px">Length: <b style="color:var(--ink)">${o.autoFit ? esc(num(o.targetMin)) + " min" : "set by hand"}</b> — change it on the Today screen.</div>`}
       <div class="fitsum" id="fit-sum">${fitSummary(o)}</div>
-      <div class="tl" id="tl">${timeline(o)}</div>
+      <div class="tl" id="tl">${timeline(o)}</div><div id="tl-strip">${tlStrip(o)}</div>
       <div class="legend"><span style="--c:var(--tl-w)">Work</span><span style="--c:var(--tl-r)">Transition / rest</span><span style="--c:var(--tl-g)">Get ready</span></div>
       <div class="totrow"><span class="muted">Total workout time</span><b id="tot-all">${fmt(totalAll(o))}</b></div>
       <button class="link" data-act="adv" style="margin-top:8px">${S.adv ? "Hide timing options ▴" : "Timing options ▾"}</button>`;
@@ -1620,7 +1665,7 @@ function timeChip(t, txt, pin, label, id) {
 const exChip = (o, bi, ei) => { const b = o.blocks[bi], e = b.exercises[ei]; return timeChip({ t: "ex", b: bi, e: ei }, sx(exWork(e, b)), exPin(e) != null, e.name.trim() + " time", `tc${bi}-${ei}`); };
 const blkChip = (o, bi) => timeChip({ t: "blk", b: bi }, fmt(blockTotal(o.blocks[bi], o)), fitLocked(o.blocks[bi], o), `Superset ${LET[bi] || bi + 1} total`, `tcb${bi}`);
 const restChip = (o, k) => timeChip({ t: "rest", k }, sx(restVal(o, k)), restPin(o, k) != null, REST_NAME[k]);
-function removeExercise(o, bi, ei) { o.blocks[bi].exercises.splice(ei, 1); touch(o); render(); }
+function removeExercise(o, bi, ei) { S.tlSel = null; o.blocks[bi].exercises.splice(ei, 1); touch(o); render(); }
 /* fill for me */
 function libPool(cats) {
   const lib = S.library?.categories || [], m = new Map();
@@ -2486,7 +2531,7 @@ document.addEventListener("change", e => {
 function updTimerUI() {
   const o = cur(), a = $("#tot-all"); if (a) a.textContent = fmt(totalAll(o));
   const fs = $("#fit-sum"); if (fs) fs.innerHTML = fitSummary(o);
-  const tl = $("#tl"); if (tl) tl.innerHTML = timeline(o);
+  const tl = $("#tl"); if (tl) { tl.innerHTML = timeline(o); tlSync(); }
   const rl = $("#rest-live"); if (rl) rl.innerHTML = restLine(o);
   const set = (k, v) => { const n = document.querySelector(`[data-k="${k}"]`); if (n && document.activeElement !== n) n.value = v; };
   o.blocks.forEach((b, i) => { set("bw" + i, b.work); set("be" + i, b.restEx); set("br" + i, b.restRound); set("bt" + i, fmt(blockTotal(b, o))); });
