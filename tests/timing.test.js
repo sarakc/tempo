@@ -125,27 +125,63 @@ function genWorkout(rnd) {
   return timerDraft(o, blocks);
 }
 
+// The shortest version a workout can have: unpinned work at 10s, unpinned rests at 5s, flexible pinned supersets at their totals.
+// stuck: a pinned superset can't hold its own exercises at those minimums, so no target length fixes it.
+function minFit(d) {
+  const P = d.restLocks || {}, pin = k => P[k] > 0 ? P[k] : null, pe = pin("ex"), pr = pin("rd"), pb = pin("bl");
+  const named = d.blocks.filter(b => b.exercises.some(e => e.name.trim()));
+  let stuck = false, tot = (d.ready || 0) + (d.warmup?.dur || 0) + (d.cooldown?.dur || 0) + Math.max(0, named.length - 1) * (pb ?? 5);
+  named.forEach(b => {
+    const ex = b.exercises.filter(e => e.name.trim()), R = b.rounds;
+    const inner = R * ex.reduce((a, e) => a + (e.side ? 2 : 1) * (e.work > 0 ? e.work : 10) + (e.side ? 5 : 0), 0)
+      + (d.restsOn ? R * (ex.length - 1) * (pe ?? 5) : 0) + (R - 1) * (pr ?? 5);
+    if (b.lockTotal > 0 && ex.some(e => !(e.work > 0))) { if (inner > b.lockTotal) stuck = true; tot += Math.max(inner, b.lockTotal); }
+    else tot += inner;
+  });
+  return { tot, stuck };
+}
+const flexLocked = d => d.blocks.filter(b => b.lockTotal > 0 && b.exercises.some(e => e.name.trim() && !e.work));
+
 test("exact total, even spread and consistent totals across generated workouts", () => {
-  const rnd = mulberry32(1); let checked = 0, skipped = 0;
+  const rnd = mulberry32(1); let exact = 0, early = 0, short = 0, stuck = 0, minWork = Infinity;
   for (let i = 0; i < 2000; i++) {
     const d = genWorkout(rnd); T.applyFit(d);
-    const steps = T.buildSteps(d), tot = T.totalAll(d), ctx = JSON.stringify(d);
+    const steps = T.buildSteps(d), tot = T.totalAll(d), ctx = JSON.stringify(d), tgt = d.targetMin * 60, m = minFit(d);
     assert.ok(finite(steps), ctx);
     assert.equal(tot, sum(steps), ctx);
     const named = d.blocks.filter(b => b.exercises.some(e => e.name.trim()));
     const segs = (d.warmup?.dur || 0) + (d.cooldown?.dur || 0);
     assert.equal(tot, d.ready + segs + named.reduce((a, b) => a + T.blockTotal(b, d), 0) + (named.length - 1) * d.restBlock + d.fit.adj, ctx);
-    if (d.fit.short || d.fit.allSet) { skipped++; continue; }
-    checked++;
-    assert.equal(tot, d.targetMin * 60, ctx);
-    assert.ok(poolSpread(steps).every(x => x <= 1), ctx);
-    named.filter(b => b.lockTotal && b.exercises.some(e => e.name.trim() && !e.work)).forEach(b => {
+    // "Too much to fit" exactly when the shortest version is over the target, or a pinned superset can't hold its exercises
+    assert.equal(d.fit.short, m.stuck || m.tot > tgt, `min ${m.tot} vs ${tgt}: ${ctx}`);
+    assert.equal(!!d.fit.stuck, m.stuck, ctx);
+    if (d.fit.short) { short++; if (m.stuck) stuck++; else assert.equal(tot, m.tot, "short shows the shortest version: " + ctx); continue; }
+    assert.ok(steps.filter(s => s.k === "rest").every(s => s.dur >= 5), ctx);
+    steps.filter(s => s.k === "work" && s.auto).forEach(s => { minWork = Math.min(minWork, s.dur); });
+    flexLocked(d).forEach(b => {
       assert.equal(sum(blockSteps(steps, b.id)), b.lockTotal, ctx);
       assert.equal(T.blockTotal(b, d), b.lockTotal, ctx);
     });
+    if (d.fit.allSet) { early++; assert.ok(tot <= tgt, ctx); continue; }
+    exact++;
+    assert.equal(tot, tgt, ctx);
+    assert.ok(poolSpread(steps).every(x => x <= 1), ctx);
   }
-  console.log(`exact total: ${checked} checked, ${skipped} skipped (short/allSet)`);
-  assert.ok(checked > 500);
+  console.log(`generated: ${exact} exact, ${early} all set by hand, ${short} too much to fit (${stuck} stuck); shortest auto work ${minWork}s`);
+  assert.ok(exact > 500 && short > 50);
+  assert.ok(minWork >= 9, `auto work went down to ${minWork}s`);
+});
+
+test("'Make it N min' always fixes a workout that a longer target can fix", () => {
+  const rnd = mulberry32(7); let tried = 0;
+  for (let i = 0; i < 2000; i++) {
+    const d = genWorkout(rnd); T.applyFit(d);
+    if (!d.fit.short || d.fit.stuck) continue;
+    tried++;
+    d.targetMin = Math.ceil(T.totalAll(d) / 60); T.applyFit(d);
+    assert.equal(d.fit.short, false, JSON.stringify(d));
+  }
+  assert.ok(tried > 50, `only ${tried} short cases`);
 });
 
 test("pinned exercise keeps its time and the others share evenly", () => {
@@ -301,4 +337,67 @@ test("applyAdj leaves the signature of the base steps alone", () => {
   T.applyAdj(base, { 1: 15 });
   assert.equal(T.stepsSig(T.buildSteps(d)), sig);
   // reordered signature differs: covered by "swapping two identically timed exercises changes it"
+});
+
+/* ---------- pinned supersets size their own rests ---------- */
+test("pinned superset next to an automatic one: fits, lands on its total, workout on the target", () => {
+  for (const lt of [300, 420, 480]) {
+    const d = timerDraft({}, [blk(["Squat", "Row"], 3, { id: "bA" }), blk(["Press", "Curl", "Lunge"], 3, { id: "bB", lockTotal: lt })]); T.applyFit(d);
+    const steps = T.buildSteps(d), B = d.blocks[1], ctx = `${lt}: ` + JSON.stringify(d);
+    assert.equal(d.fit.short, false, ctx);
+    assert.equal(T.totalAll(d), 1800, ctx);
+    assert.equal(sum(blockSteps(steps, "bB")), lt, ctx);
+    // B keeps the chosen balance inside its own total: its work is the biggest share, its rests scale with it
+    assert.ok(B.work >= 10 && B.restRound < B.work * 2 && B.restEx < B.work, ctx);
+    assert.ok(B.restRound < d.blocks[0].restRound, ctx);
+  }
+});
+
+test("only superset pinned: sensible rests inside it, not short when the pin fits", () => {
+  const d = timerDraft({}, [blk(["Squat", "Row", "Press"], 3, { id: "bA", lockTotal: 600 })]); T.applyFit(d);
+  const b = d.blocks[0], steps = T.buildSteps(d);
+  assert.equal(d.fit.short, false);
+  assert.equal(sum(blockSteps(steps, "bA")), 600);
+  assert.ok(b.restEx > 5 && b.restRound > 5, `${b.restEx} / ${b.restRound}`);
+  // balanced: switch ≈ work / 3, round rest ≈ 4 × switch
+  assert.ok(Math.abs(b.restEx - b.work / 3) <= 2 && Math.abs(b.restRound - 4 * b.restEx) <= 3, JSON.stringify(b));
+  assert.equal(T.totalAll(d), 10 + 600);
+});
+
+test("two supersets pinned at 7:00: no runaway rest between them, not short", () => {
+  const d = timerDraft({}, [blk(["Squat", "Row"], 3, { id: "bA", lockTotal: 420 }), blk(["Press", "Curl"], 3, { id: "bB", lockTotal: 420 })]); T.applyFit(d);
+  const steps = T.buildSteps(d);
+  assert.equal(d.fit.short, false);
+  assert.equal(sum(blockSteps(steps, "bA")), 420);
+  assert.equal(sum(blockSteps(steps, "bB")), 420);
+  assert.ok(d.restBlock >= 5 && d.restBlock <= 180, `between supersets ${d.restBlock}s`);
+  assert.ok(d.blocks.every(b => b.restRound <= 120), JSON.stringify(d.blocks));
+  assert.ok(T.totalAll(d) <= 1800);
+});
+
+test("pinned superset plus a fully pinned one: not short when the pins fit", () => {
+  const d = timerDraft({ targetMin: 35 }, [blk(["Squat", "Row"], 3, { id: "bA", lockTotal: 480 }), custom("bB", [ex("Plank", { work: 60 }), ex("Hold", { work: 40 })], 3)]); T.applyFit(d);
+  assert.equal(d.fit.short, false, JSON.stringify(d));
+  assert.equal(sum(blockSteps(T.buildSteps(d), "bA")), 480);
+  assert.ok(T.totalAll(d) <= 2100);
+});
+
+test("pinned superset too short for its own exercises is stuck: no target length fixes it", () => {
+  const d = timerDraft({}, [blk(["Squat", "Row"], 3, { id: "bA" }), blk(["Press", "Curl", "Lunge"], 4, { id: "bB", lockTotal: 120 })]); T.applyFit(d);
+  assert.equal(d.fit.short, true);
+  assert.equal(d.fit.stuck, true);
+  assert.ok(finite(T.buildSteps(d)));
+  d.targetMin = 90; T.applyFit(d);
+  assert.equal(d.fit.short, true);
+});
+
+test("applying the suggested length once gives a workout that fits", () => {
+  const d = timerDraft({ targetMin: 5 }, [blk(["Squat", "Row"], 3, { id: "bA" }), blk(["Press", "Curl", "Lunge"], 3, { id: "bB", lockTotal: 300 })]); T.applyFit(d);
+  assert.equal(d.fit.short, true);
+  assert.ok(!d.fit.stuck);
+  const need = Math.ceil(T.totalAll(d) / 60);
+  d.targetMin = need; T.applyFit(d);
+  assert.equal(d.fit.short, false, JSON.stringify(d));
+  assert.equal(T.totalAll(d), need * 60);
+  assert.equal(sum(blockSteps(T.buildSteps(d), "bB")), 300);
 });

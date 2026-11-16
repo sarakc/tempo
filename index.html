@@ -739,35 +739,62 @@ function counts(d) {
   d.blocks.forEach(b => { const n = namedEx(b); if (!n.length) return; nB++; nW += b.rounds * n.reduce((a, e) => a + exUnits(e), 0); if (d.restsOn) nE += b.rounds * (n.length - 1); nR += b.rounds - 1; });
   return { nW, nE, nR, nB: Math.max(0, nB) };
 }
+/* Fit one pool of work and rests into B seconds at the rest ratios r.
+   s: { wu, wp, sw, nE, nR, nB } as from exStats; p: pinned rests { ex, rd, bl } (null = auto);
+   cap: most seconds per unit when the pool has no work of its own to balance its rests against.
+   If the balance would leave under 10s of work, work holds at 10s and the rests shrink toward 5s.
+   short: even 10s work and 5s rests don't fit. avail/denom: the pool's basis, for pools that borrow it. */
+function fitPool(B, s, r, p, cap) {
+  const n = { ex: s.nE, rd: s.nR, bl: s.nB }, K = ["ex", "rd", "bl"], free = K.filter(k => p[k] == null && n[k] > 0);
+  const avail = B - s.wp - s.sw - K.reduce((a, k) => a + (p[k] ?? 0) * n[k], 0);
+  const denom = s.wu + free.reduce((a, k) => a + r[k] * n[k], 0);
+  const at = v => ({ ex: p.ex ?? Math.max(5, Math.round(v * r.ex)), rd: p.rd ?? Math.max(5, Math.round(v * r.rd)), bl: p.bl ?? Math.max(5, Math.round(v * r.bl)) });
+  const restSec = o => free.reduce((a, k) => a + o[k] * n[k], 0);
+  // the largest v (up to hi) whose rests fit in lim seconds, or null if even 5s rests don't
+  const fitRests = (lim, hi) => {
+    if (restSec(at(0)) > lim) return null;
+    let lo = 0; for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (restSec(at(m)) <= lim) lo = m; else hi = m; }
+    return lo;
+  };
+  const u = denom > 0 ? Math.min(avail / denom, cap ?? Infinity) : 0;
+  let R = at(u), w = 0, short = false;
+  if (s.wu) {
+    w = Math.round((avail - restSec(R)) / s.wu);
+    if (w < 10) {
+      const v = fitRests(avail - 10 * s.wu, Math.max(0, u));
+      if (v == null) { R = at(0); w = 10; short = true; } else { R = at(v); w = Math.max(10, Math.round((avail - restSec(R)) / s.wu)); }
+    }
+  } else if (restSec(R) > avail) { const v = fitRests(avail, Math.max(0, u)); R = at(v ?? 0); short = v == null; }
+  return { ...R, w, short, avail, denom };
+}
 /* Fit every work/rest length so the whole workout lands on the target length.
-   Pinned supersets, pinned exercises and pinned rests come off first; unpinned work and rests share the rest. */
+   Pinned supersets fit inside their own totals first, with their own rests at the chosen balance.
+   Pinned exercises and pinned rests come off next; unpinned work and rests outside pinned supersets share the rest. */
 function applyFit(d) {
   if (d.mode !== "timer" || !d.autoFit) return;
-  d.fit = { short: false, allSet: false, adj: 0 };
+  d.fit = { short: false, allSet: false, stuck: false, adj: 0 };
   d.blocks.forEach(b => { b.adj = 0; });
   const named = d.blocks.filter(b => namedEx(b).length); if (!named.length) return;
   const tgt = Math.max(60, Math.round((num(d.targetMin) || DEF.targetMin) * 60));
   const T = tgt - int(d.ready, 0) - segDur(d.warmup) - segDur(d.cooldown);
-  const locked = named.filter(b => fitLocked(b, d)), outer = named.filter(b => !locked.includes(b));
-  const r = restRatios(d), P = d.restLocks || {}, pe = int(P.ex, null), pr = int(P.rd, null), pb = int(P.bl, null);
-  const c = { wu: 0, wp: 0, sw: 0, nE: 0, nR: 0 };
-  outer.forEach(b => { const s = exStats(b, d); for (const k in c) c[k] += s[k]; });
-  const nB = named.length - 1, L = locked.reduce((a, b) => a + int(b.lockTotal, 0), 0);
-  const fixed = L + c.wp + c.sw + (pe ?? 0) * c.nE + (pr ?? 0) * c.nR + (pb ?? 0) * nB;
-  const denom = c.wu + (pe == null ? r.ex * c.nE : 0) + (pr == null ? r.rd * c.nR : 0) + (pb == null ? r.bl * nB : 0);
-  const u = denom > 0 ? (T - fixed) / denom : 0;
-  const ex = pe ?? Math.max(5, Math.round(u * r.ex)), rd = pr ?? Math.max(5, Math.round(u * r.rd)), bl = pb ?? Math.max(5, Math.round(u * r.bl));
-  let w = 0;
-  if (!c.wu) d.fit.allSet = true;
-  else { w = Math.round((T - L - c.wp - c.sw - ex * c.nE - rd * c.nR - bl * nB) / c.wu); if (w < 10) { w = 10; d.fit.short = true; } }
-  d.blocks.forEach(b => { b.restEx = ex; b.restRound = rd; if (c.wu && !locked.includes(b)) b.work = w; });
-  d.restBlock = bl;
+  const locked = named.filter(b => fitLocked(b, d));
+  const r = restRatios(d), P = d.restLocks || {}, p = { ex: int(P.ex, null), rd: int(P.rd, null), bl: int(P.bl, null) };
+  let L = 0, lu = 0, ld = 0;
   locked.forEach(b => {
-    const s = exStats(b, d), lt = int(b.lockTotal, 0);
-    const bw = Math.round((lt - s.nE * ex - s.nR * rd - s.sw - s.wp) / s.wu);
-    if (bw < 10) { b.work = 10; d.fit.short = true; return; }
-    b.work = bw; b.adj = lt - blockRaw(b, d);
+    const lt = int(b.lockTotal, 0), f = fitPool(lt, { ...exStats(b, d), nB: 0 }, r, p);
+    b.restEx = f.ex; b.restRound = f.rd; b.work = f.w;
+    if (f.short) d.fit.short = d.fit.stuck = true; // the superset can't hold its own exercises: no target length fixes that
+    else b.adj = lt - blockRaw(b, d);
+    L += blockTotal(b, d); lu += f.avail; ld += f.denom;
   });
+  const c = { wu: 0, wp: 0, sw: 0, nE: 0, nR: 0, nB: named.length - 1 };
+  named.filter(b => !locked.includes(b)).forEach(b => { const s = exStats(b, d); for (const k in s) if (k in c && k !== "nB") c[k] += s[k]; });
+  // with no unpinned work outside the pinned supersets, rests there follow the pinned supersets' balance instead of stretching to fill the target
+  const f = fitPool(T - L, c, r, p, !c.wu && locked.length ? lu / ld : null);
+  if (!c.wu) d.fit.allSet = true;
+  else if (f.short) d.fit.short = true;
+  d.blocks.forEach(b => { if (locked.includes(b)) return; b.restEx = f.ex; b.restRound = f.rd; if (c.wu) b.work = f.w; });
+  d.restBlock = f.bl;
   if (d.fit.allSet && totalAll(d) > tgt) d.fit.short = true; // pins alone exceed the target: flag only
   if (!d.fit.short && !d.fit.allSet) d.fit.adj = tgt - totalAll(d);
 }
@@ -1081,29 +1108,34 @@ const tgtSec = o => Math.round((num(o.targetMin) || DEF.targetMin) * 60);
 function fitFixes(o) {
   const tot = totalAll(o), tgt = tgtSec(o), tol = fitTol(tgt);
   if (!(o.fit && o.fit.short) && tot <= tgt + tol) return "";
-  const need = Math.ceil(tot / 60);
-  let btns = `<button class="btn sm" data-act="fit-len" data-v="${need}">Make it ${need} min</button>`;
+  const need = Math.ceil(tot / 60), stuck = o.blocks.filter(b => fitLocked(b, o) && blockTotal(b, o) > int(b.lockTotal, 0));
+  // a pinned superset too short for its own exercises isn't fixed by a longer workout, so don't offer one
+  let btns = stuck.length ? "" : `<button class="btn sm" data-act="fit-len" data-v="${need}">Make it ${need} min</button>`;
   const maxR = Math.max(...o.blocks.map(b => b.rounds));
   for (let R = maxR - 1; R >= 1; R--) {
     const c = clone(o); c.blocks.forEach(b => { b.rounds = Math.min(b.rounds, R); }); applyFit(c);
-    if (totalAll(c) <= tgt + tol) { btns += `<button class="btn sm" data-act="fit-rounds" data-v="${R}">Use ${R} round${R > 1 ? "s" : ""}</button>`; break; }
+    if (!c.fit?.short && totalAll(c) <= tgt + tol) { btns += `<button class="btn sm" data-act="fit-rounds" data-v="${R}">Use ${R} round${R > 1 ? "s" : ""}</button>`; break; }
   }
   const pins = [];
   o.blocks.forEach((b, bi) => namedEx(b).forEach(e => { const p = exPin(e); if (p != null) pins.push({ bi, e, ei: b.exercises.indexOf(e), p }); }));
   pins.sort((x, y) => y.p - x.p).slice(0, 2).forEach(x => { btns += `<button class="btn sm" data-act="unpin" data-b="${x.bi}" data-e="${x.ei}">Set ${esc(x.e.name.trim())} back to auto</button>`; });
   o.blocks.forEach((b, bi) => { if (int(b.lockTotal, 0) > 0 && namedEx(b).length) btns += `<button class="btn sm" data-act="unpin-blk" data-b="${bi}">Set Superset ${LET[bi]} back to auto</button>`; });
-  return `<div class="warn" style="margin-top:6px">Too much to fit in ${num(o.targetMin)} min — the shortest version is ${fmt(tot)}.</div><div class="acts">${btns}</div>`;
+  const msg = stuck.length ? stuck.map(b => `Superset ${LET[o.blocks.indexOf(b)]} needs at least ${fmt(blockTotal(b, o))} for its exercises.`).join(" ")
+    : `Too much to fit in ${num(o.targetMin)} min — the shortest version is ${fmt(tot)}.`;
+  return `<div class="warn" style="margin-top:6px">${msg}</div><div class="acts">${btns}</div>`;
 }
+/* The superset whose times stand for the workout's automatic ones: the first named one that isn't pinned to a total */
+const baseBlock = o => { const n = o.blocks.filter(b => namedEx(b).length); return n.find(b => !fitLocked(b, o)) || n[0] || null; };
 function fitSummary(o) {
   if (!o.autoFit) return `<span class="muted">Times are set by hand on each superset. Tap a length to fit them automatically.</span>`;
-  const b = o.blocks.find(x => x.exercises.some(e => e.name.trim()));
+  const b = baseBlock(o);
   if (!b) return `<span class="muted">Add exercises and the timings will size themselves.</span>`;
   if (o.fit && o.fit.allSet) return `<span class="muted">All times are set by hand · <b>${fmt(totalAll(o))}</b></span>` + fitFixes(o);
   return `<b>${sx(b.work)}</b> per exercise` + (o.restsOn ? ` · ${restChip(o, "ex")} to switch` : "") + ` · ${restChip(o, "rd")} between rounds` + (counts(o).nB ? ` · ${restChip(o, "bl")} between supersets` : "") + fitFixes(o);
 }
 const restScaleOf = o => num(o.restScale) ?? ({ work: .6, even: 1, rest: 1.5 }[o.balance] ?? 1);
 function restLine(o) {
-  const b = o.blocks.find(x => x.exercises.some(e => e.name.trim()));
+  const b = baseBlock(o);
   if (!b) return `<span class="muted">Add exercises and the timings will size themselves.</span>`;
   return `<b>${sx(b.work)}</b> work` + (o.restsOn ? ` · ${restChip(o, "ex")} switch` : "") + ` · ${restChip(o, "rd")} between rounds` + (counts(o).nB ? ` · ${restChip(o, "bl")} between supersets` : "");
 }
@@ -1736,7 +1768,7 @@ const REST_NAME = { ex: "Transition", rd: "Round rest", bl: "Rest between supers
 const REST_KEY = { ex: "restEx", rd: "restRound" };
 const isFit = o => o.mode === "timer" && !!o.autoFit;
 const restPin = (o, k) => { const v = int(o.restLocks?.[k], 0); return v > 0 ? v : null; };
-const restVal = (o, k) => k === "bl" ? int(o.restBlock, 0) : int((o.blocks.find(b => namedEx(b).length) || o.blocks[0] || {})[REST_KEY[k]], 0);
+const restVal = (o, k) => k === "bl" ? int(o.restBlock, 0) : int((baseBlock(o) || o.blocks[0] || {})[REST_KEY[k]], 0);
 /* What a target points at, its current time, whether it's pinned, and its floor; null if it no longer exists */
 function teInfo(o, t) {
   if (!t) return null;
