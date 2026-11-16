@@ -1055,6 +1055,7 @@ const STARTER_LIBRARY = { categories: [
 ] };
 async function init() {
   S.draft = normDraft(lsGet("wt.draft")) || blankDraft();
+  if (!S.draft.resume) applyFit(S.draft); // a draft saved by an older version lands on its target; a paused one keeps the times it can resume with
   const db = localDB();
   S.db = db; S.dbState = "on";
   if (!(await db.doc("library/main").get()).exists && !lsGet("tempo.seeded")) { db.seed("library/main", STARTER_LIBRARY); lsSet("tempo.seeded", true); }
