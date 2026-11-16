@@ -129,6 +129,10 @@ select.in{appearance:none;background-image:linear-gradient(45deg,transparent 50%
 .target{display:flex;align-items:center;gap:10px;margin:4px 0 10px}
 .target .in{width:92px;font-family:"Space Grotesk",system-ui,sans-serif;font-size:24px;font-weight:700;text-align:center;padding:6px}
 .fitsum{background:var(--bg2);border-radius:10px;padding:9px 11px;font-size:13px;margin:8px 0}
+.wr input[type=range]{width:100%;margin:6px 0 0;accent-color:var(--ink)}
+.wr-ends{position:relative;display:flex;justify-content:space-between;font-size:12px;color:var(--muted);font-weight:600}
+.wr-mid{position:absolute;left:37.5%;transform:translateX(-50%);padding-top:6px;color:var(--ink)}
+.wr-mid::before{content:"";position:absolute;left:50%;top:-4px;height:8px;border-left:1px solid var(--muted)}
 .fitsum b{font-family:"Space Grotesk",system-ui,sans-serif}
 .totrow{display:flex;justify-content:space-between;align-items:baseline;margin:10px 0 2px}
 .totrow b{font-family:"Space Grotesk",system-ui,sans-serif;font-size:22px}
@@ -1038,6 +1042,12 @@ function fitSummary(o) {
   if (o.fit && o.fit.allSet) return `<span class="muted">All times are set by hand · <b>${fmt(totalAll(o))}</b></span>` + fitFixes(o);
   return `<b>${sx(b.work)}</b> per exercise` + (o.restsOn ? ` · ${restChip(o, "ex")} to switch` : "") + ` · ${restChip(o, "rd")} between rounds` + (counts(o).nB ? ` · ${restChip(o, "bl")} between supersets` : "") + fitFixes(o);
 }
+const restScaleOf = o => num(o.restScale) ?? ({ work: .6, even: 1, rest: 1.5 }[o.balance] ?? 1);
+function restLine(o) {
+  const b = o.blocks.find(x => x.exercises.some(e => e.name.trim()));
+  if (!b) return `<span class="muted">Add exercises and the timings will size themselves.</span>`;
+  return `<b>${sx(b.work)}</b> work` + (o.restsOn ? ` · ${restChip(o, "ex")} switch` : "") + ` · ${restChip(o, "rd")} between rounds` + (counts(o).nB ? ` · ${restChip(o, "bl")} between supersets` : "");
+}
 function blockSum(b, o) {
   if (!b.exercises.some(e => e.name.trim())) return "Add exercises to this superset";
   return `<b>${fmt(blockTotal(b, o))}</b> for this superset`;
@@ -1096,7 +1106,10 @@ function viewBuilder(o, opt) {
     if (S.adv) {
       h += `<div class="adv">
         <label class="tog"><input type="checkbox" data-bind="autoFit" ${fit ? "checked" : ""}> Fit times to the chosen length</label>
-        ${fit ? `<div class="small muted" style="font-weight:600;margin-bottom:4px">Work vs rest</div><div class="seg">${Object.entries(BAL).map(([k, v]) => `<button data-act="bal" data-v="${k}" class="${(o.balance || "even") === k ? "on" : ""}">${v.label}</button>`).join("")}</div>` : ""}
+        ${fit ? `<div class="small muted" style="font-weight:600;margin-bottom:4px">Work vs rest</div>
+        <div class="wr"><input type="range" min="0.4" max="2" step="0.1" value="${restScaleOf(o)}" data-bind="restScale" aria-label="Work versus rest">
+          <div class="wr-ends"><span>More work</span><span class="wr-mid">Balanced</span><span>More rest</span></div></div>
+        <div class="fitsum" id="rest-live">${restLine(o)}</div>` : ""}
         <label class="tog" style="margin-top:10px"><input type="checkbox" data-bind="restsOn" ${o.restsOn ? "checked" : ""}> Short transition between exercises</label>
         <div class="tset two">
           <label>Rest between supersets (sec)<input class="in" inputmode="numeric" data-bind="restBlock" data-k="restBlock" value="${esc(o.restBlock)}" ${fit ? "disabled" : ""}></label>
@@ -2301,7 +2314,6 @@ document.addEventListener("click", e => {
       if (S.tab === "edit") { saveEditNow(); S.edit = null; }
       S.tab = t.dataset.tab; lsSet("wt.tab", S.tab); window.scrollTo(0, 0); render(); break;
     case "mode": o.mode = t.dataset.m; if (o.mode === "timer") stopRest(); touch(o); render(); break;
-    case "bal": o.balance = t.dataset.v; touch(o); render(); break;
     case "rounds": { const b = o.blocks[bi]; b.rounds = Math.min(10, Math.max(1, b.rounds + +t.dataset.d)); normDraft(o); touch(o); render(); break; }
     case "rm-block": {
       const has = o.blocks[bi].exercises.some(x => x.name || x.sets.some(s => s.w || s.r));
@@ -2432,6 +2444,7 @@ document.addEventListener("input", e => {
     const k = t.dataset.bind;
     if (k === "restsOn" || k === "autoFit" || k === "logReps") { o[k] = t.checked; touch(o); render(); return; }
     if (k === "targetMin") o.autoFit = true;
+    if (k === "restScale") { const v = num(t.value); if (v != null) o.restScale = v; touch(o); updTimerUI(); return; }
     if (k === "restBlock" || k === "ready") o[k] = t.value.replace(/[^0-9]/g, "");
     else if (k === "targetMin") o[k] = t.value.replace(/[^0-9.]/g, "");
     else o[k] = t.value;
@@ -2474,6 +2487,7 @@ function updTimerUI() {
   const o = cur(), a = $("#tot-all"); if (a) a.textContent = fmt(totalAll(o));
   const fs = $("#fit-sum"); if (fs) fs.innerHTML = fitSummary(o);
   const tl = $("#tl"); if (tl) tl.innerHTML = timeline(o);
+  const rl = $("#rest-live"); if (rl) rl.innerHTML = restLine(o);
   const set = (k, v) => { const n = document.querySelector(`[data-k="${k}"]`); if (n && document.activeElement !== n) n.value = v; };
   o.blocks.forEach((b, i) => { set("bw" + i, b.work); set("be" + i, b.restEx); set("br" + i, b.restRound); set("bt" + i, fmt(blockTotal(b, o))); });
   if (arguments[0]) o.blocks.forEach((b, i) => { const n = document.querySelector(`[data-k="bt${i}"]`); if (n) n.value = fmt(blockTotal(b, o)); });
