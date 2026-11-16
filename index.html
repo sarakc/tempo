@@ -123,6 +123,7 @@ body.dragging,body.dragging *{cursor:grabbing !important;user-select:none;-webki
 .dph{border:1.5px dashed var(--track);border-radius:var(--r-sm)}
 .dph.phb{border-radius:var(--r);margin-bottom:12px}
 .exn .name{flex:1;text-align:left;border:0;background:none;font-weight:600;padding:4px 0;font-size:15.5px;min-width:0}
+.sidetag{flex:none;font-size:11.5px;color:var(--muted);border:1px solid var(--line,var(--bg2));border-radius:999px;padding:1px 7px}
 .exn .name.empty{color:var(--muted);text-decoration:underline;text-underline-offset:3px}
 .hint{font-size:12px;color:var(--muted);margin:0 0 6px 22px}
 .sets{display:grid;gap:5px;align-items:center;margin-left:22px}
@@ -1316,7 +1317,7 @@ function viewBuilder(o, opt) {
       const last = showGrid && ex.name ? lastFor(ex.name) : null;
       h += `<div class="ex"><div class="exn"><span class="grip" data-drag="ex" data-b="${bi}" data-e="${ei}" aria-hidden="true">⋮⋮</span><span class="order">${L}${ei + 1}</span>
         <button class="name ${ex.name ? "" : "empty"}" data-act="pick" data-b="${bi}" data-e="${ei}">${ex.name ? esc(ex.name) : "+ Choose exercise"}</button>
-        ${timer && ex.name.trim() ? exChip(o, bi, ei) : ""}
+        ${ex.side ? `<span class="sidetag">each side</span>` : ""}${timer && ex.name.trim() ? exChip(o, bi, ei) : ""}
         <button class="icon" data-act="rm-ex" data-b="${bi}" data-e="${ei}" aria-label="Remove exercise">✕</button></div>`;
       if (showGrid) {
         if (last) h += `<div class="hint">Last time (${esc(fmtDate(last.date))}): ${esc(fmtSets(last.sets, last.mode, unit)) || "nothing logged"}</div>`;
@@ -1981,6 +1982,7 @@ function wakeOff() { try { wake && wake.release(); } catch {} wake = null; }
 const nextWorkIdx = i => { for (let j = i + 1; j < T.steps.length; j++) if (T.steps[j].k === "work") return j; return -1; };
 const prevWorkIdx = i => { for (let j = i - 1; j >= 0; j--) if (T.steps[j].k === "work") return j; return -1; };
 const exName = st => S.draft.blocks[st.b]?.exercises[st.e]?.name || "";
+const stName = st => exName(st) + (st.side ? ` · side ${st.side}` : "");
 const firstNamed = blk => blk.exercises.findIndex(e => e.name.trim());
 
 function startTimer(fresh) {
@@ -2017,6 +2019,7 @@ function saveResume() {
 function phaseInfo(i) {
   const st = T.steps[i];
   if (st.k === "work") return { label: "Work", sub: "Go! Do it now", go: true };
+  if (st.sub === "side") return { label: "Switch sides", sub: "" };
   const n = nextWorkIdx(i), nx = n >= 0 ? T.steps[n] : null;
   if (st.sub === "ready") return { label: "Get ready", sub: "First up" };
   if (st.sub === "switch") return { label: "Get ready", sub: "Move to the next exercise" };
@@ -2030,13 +2033,14 @@ function cue(prefix) {
   if (st.k === "work") {
     playSound(s.sWorkGo); buzz([220]);
     const blk = S.draft.blocks[st.b]; let pre = "Go. ";
-    if (s.cues) { if (nextWorkIdx(T.i) < 0) pre = "Last one! "; else if (blk.rounds > 1 && st.r === blk.rounds - 1 && st.e === firstNamed(blk)) pre = "Last round. Go. "; }
-    say(prefix + pre + exName(st)); return;
+    if (s.cues) { if (nextWorkIdx(T.i) < 0) pre = "Last one! "; else if (blk.rounds > 1 && st.r === blk.rounds - 1 && st.e === firstNamed(blk) && st.side !== 2) pre = "Last round. Go. "; }
+    say(prefix + pre + exName(st) + (st.side ? `, side ${st.side}` : "")); return;
   }
   playSound(s.sWorkRest); buzz([80, 60, 80]);
   const n = nextWorkIdx(T.i), name = n >= 0 ? exName(T.steps[n]) : "";
   const p = phaseInfo(T.i);
-  if (st.sub === "ready") say(prefix + "Get ready. First up, " + name);
+  if (st.sub === "side") say(prefix + "Switch sides");
+  else if (st.sub === "ready") say(prefix + "Get ready. First up, " + name);
   else if (st.sub === "switch") say(prefix + "Next, " + name);
   else say(prefix + "Rest. " + p.sub + ". " + name);
 }
@@ -2237,15 +2241,15 @@ function drawTimer(full) {
       const blk = tgt ? S.draft.blocks[tgt.b] : null, nEx = blk ? blk.exercises.filter(e => e.name.trim()).length : 0;
       const pos = blk ? blk.exercises.slice(0, tgt.e + 1).filter(e => e.name.trim()).length : 0;
       const meta = tgt ? `Superset ${LET[tgt.b]} · Round ${tgt.r + 1} of ${blk.rounds} · Exercise ${pos} of ${nEx}` : "";
-      const ups = []; let j = tgtIdx; while (ups.length < 3 && j >= 0) { j = nextWorkIdx(j); if (j >= 0) ups.push(exName(T.steps[j])); }
+      const ups = []; let j = tgtIdx; while (ups.length < 3 && j >= 0) { j = nextWorkIdx(j); if (j >= 0 && T.steps[j].side !== 2) ups.push(exName(T.steps[j])); }
       const reps = !!S.draft.logReps, prevI = prevWorkIdx(T.i), prev = !isWork && prevI >= 0 ? T.steps[prevI] : null;
       let logs = "";
-      if (!isWork) { if (reps && prev) logs += `<div class="tmeta" style="width:100%">Reps for ${esc(exName(prev))}:</div>` + logInputs(prev, "r"); if (tgt) logs += (reps && prev ? `<div class="tmeta" style="width:100%;margin-top:4px">Weight for ${esc(exName(tgt))}:</div>` : "") + logInputs(tgt, "w"); }
-      const nextName = ups[0] || "";
+      if (!isWork && st.sub !== "side") { if (reps && prev) logs += `<div class="tmeta" style="width:100%">Reps for ${esc(exName(prev))}:</div>` + logInputs(prev, "r"); if (tgt) logs += (reps && prev ? `<div class="tmeta" style="width:100%;margin-top:4px">Weight for ${esc(exName(tgt))}:</div>` : "") + logInputs(tgt, "w"); }
+      const nextName = isWork && T.steps[T.i + 1]?.sub === "side" ? "Switch sides" : ups[0] || "";
       const sub = !T.paused && !isWork && p.sub && st.sub !== "switch" ? p.sub : "";
       body = `<div class="tlab2">${T.paused ? "Paused" : esc(p.label)}${sub ? ` <span>· ${esc(sub)}</span>` : ""}</div>
         <div class="tnumrow"><button class="tadj" data-act="t-minus" aria-label="Take 15 seconds off">−15</button><div class="tbig${rem >= 60 ? " mm" : ""}" id="tnum">${numTxt}</div><button class="tadj" data-act="t-plus" aria-label="Add 15 seconds">+15</button></div>
-        ${tgt ? `${isWork ? "" : `<div class="tlab3">Up next</div>`}<div class="tname2">${esc(exName(tgt))}</div><div class="tmeta2">Round ${tgt.r + 1} of ${blk.rounds} · Superset ${LET[tgt.b]}</div>` : `<div class="tname2">Last stretch!</div>`}
+        ${tgt ? `${isWork ? "" : `<div class="tlab3">Up next</div>`}<div class="tname2">${esc(stName(tgt))}</div><div class="tmeta2">Round ${tgt.r + 1} of ${blk.rounds} · Superset ${LET[tgt.b]}</div>` : `<div class="tname2">Last stretch!</div>`}
         ${logs ? `<div class="tws">${logs}</div>` : ""}
         <div class="taphint">${T.paused ? "Tap anywhere to resume" : "Tap anywhere to pause"}</div>`;
       body = `<div class="tmain" data-act="t-pause">${body}</div><div class="tnext"><span>Next</span><b>${esc(nextName || "Finish")}</b></div>`;
