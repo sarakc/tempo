@@ -541,7 +541,7 @@ const IC = {
   lock: svgI('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/>', 16),
   cloudOff: svgI('<path d="M7 18.5a4.5 4.5 0 0 1-.9-8.9 6 6 0 0 1 11.6 1.4A3.75 3.75 0 0 1 17.25 18.5z"/><path d="M4 4l16 16"/>', 18)
 };
-const DEF = { unit: "lb", rounds: 3, work: 45, restEx: 15, restRound: 60, restBlock: 90, ready: 10, restsOn: true, targetMin: 30, balance: "even", autoFit: true, cues: true, count321: false,
+const DEF = { unit: "lb", rounds: 3, work: 45, restEx: 15, restRound: 60, restBlock: 90, ready: 10, restsOn: true, targetMin: 30, balance: "even", autoFit: true, cues: true, count321: false, wtStep: null,
   focusMin: 25, shortBreak: 5, longBreak: 15, longEvery: 4, focusRounds: 4, autoBreaks: true, focusTask: "",
   medMin: 10, medGuide: "even", medBell: "bowl", medInterval: 0, medSettle: 15,
   alarmTime: "06:30", alarmSound: "bowl", alarmGentle: true, alarmSnooze: 9,
@@ -791,6 +791,20 @@ function planExercise(e) {
 }
 const stepsSig = steps => steps.map(s => s.k[0] + s.dur + (s.k === "work" ? ":" + s.bid + "." + s.eid + (s.side ? ":s" + s.side : "") : "")).join(",");
 const applyAdj = (steps, adj) => steps.map((st, i) => adj && adj[i] ? Object.assign({}, st, { dur: Math.max(1, st.dur + adj[i]) }) : st);
+function suggestWeight(sessions, step) {
+  if (!sessions || sessions.length < 2 || !(step > 0)) return null;
+  const info = s => {
+    const sets = (s && s.sets) || [];
+    const ws = sets.map(x => num(x.w)).filter(w => w !== null);
+    const rs = sets.map(x => num(x.r)).filter(r => r !== null && r > 0);
+    return { top: ws.length ? Math.max(...ws) : 0, reps: rs.length ? rs.reduce((a, b) => a + b, 0) : null };
+  };
+  const a = info(sessions[0]), b = info(sessions[1]);
+  if (!(a.top > 0) || a.top !== b.top) return null;
+  if ((a.reps === null) !== (b.reps === null)) return null;
+  if (a.reps !== null && a.reps < b.reps) return null;
+  return String(Math.round((a.top + step) * 1000) / 1000);
+}
 /* @end-testable */
 /* ---------- history index ---------- */
 function rebuildIndex() {
@@ -802,6 +816,8 @@ function rebuildIndex() {
   }
   S.lastIdx = m;
 }
+const wtStep = () => { const st = settings(); return num(st.wtStep) > 0 ? num(st.wtStep) : (st.unit === "kg" ? 2.5 : 5); };
+const tryFor = name => { const v = S.lastIdx.get((name || "").trim().toLowerCase()); const x = v && suggestWeight(v, wtStep()); return x ? ` · try ${x}` : ""; };
 const lastFor = name => (S.lastIdx.get((name || "").trim().toLowerCase()) || [])[0] || null;
 function fmtSets(sets, mode, unit) {
   const items = (sets || []).filter(s => String(s.w || "").trim() || String(s.r || "").trim()).map(s => {
@@ -1329,7 +1345,7 @@ function viewBuilder(o, opt) {
         ${ex.side ? `<span class="sidetag">each side</span>` : ""}${timer && ex.name.trim() ? exChip(o, bi, ei) : ""}
         <button class="icon" data-act="rm-ex" data-b="${bi}" data-e="${ei}" aria-label="Remove exercise">✕</button></div>`;
       if (showGrid) {
-        if (last) h += `<div class="hint">Last time (${esc(fmtDate(last.date))}): ${esc(fmtSets(last.sets, last.mode, unit)) || "nothing logged"}</div>`;
+        if (last) h += `<div class="hint">Last time (${esc(fmtDate(last.date))}): ${esc(fmtSets(last.sets, last.mode, unit)) || "nothing logged"}${esc(tryFor(ex.name))}</div>`;
         h += `<div class="sets" style="grid-template-columns:38px repeat(${R},minmax(0,1fr))"><div></div>`;
         for (let s = 0; s < R; s++) h += `<div class="sh">${timer ? "Rd" : "Set"} ${s + 1}</div>`;
         h += `<div class="lab">${esc(unit)}</div>`;
@@ -1609,6 +1625,7 @@ function viewSettings() {
   <div class="card">
     <div class="fld"><span>Weight units</span>
       <div class="seg"><button data-act="unit" data-u="lb" class="${st.unit === "lb" ? "on" : ""}">lb</button><button data-act="unit" data-u="kg" class="${st.unit === "kg" ? "on" : ""}">kg</button></div></div>
+    <div class="fld"><span>Weight step</span><input class="in" inputmode="decimal" data-wtstep value="${esc(st.wtStep ?? "")}" placeholder="${st.unit === "kg" ? "2.5" : "5"}" style="width:72px;text-align:right" aria-label="Weight step"></div>
     <div class="fld" style="margin-bottom:4px"><span>Default length for timed workouts</span></div>
     <div class="lens" style="grid-template-columns:repeat(6,minmax(0,1fr))">${LENS.map(v => `<button data-act="deflen" data-v="${v}" class="${num(st.targetMin) === v ? "on" : ""}">${v}<small>min</small></button>`).join("")}</div>
     ${tg("autoFit", "Fit new timed workouts to that length", st.autoFit)}
@@ -2221,7 +2238,7 @@ function doneLog() {
         const ph = last ? (last.sets[s]?.[f] || last.sets[last.sets.length - 1]?.[f] || "") : "";
         return `<input inputmode="${f === "w" ? "decimal" : "numeric"}" data-tset="${bi},${ei},${s},${f}" value="${esc(e.sets[s]?.[f] ?? "")}" placeholder="${esc(ph)}" aria-label="${esc(e.name)} round ${s + 1} ${f === "w" ? "weight" : "reps"}">`;
       }).join("");
-      h += `<div class="dlx"><div class="n">${esc(e.name)}</div><div class="dlr"><span>${esc(unit)}</span>${row("w")}</div>${reps ? `<div class="dlr"><span>reps</span>${row("r")}</div>` : ""}</div>`;
+      h += `<div class="dlx"><div class="n">${esc(e.name)}${esc(tryFor(e.name))}</div><div class="dlr"><span>${esc(unit)}</span>${row("w")}</div>${reps ? `<div class="dlr"><span>reps</span>${row("r")}</div>` : ""}</div>`;
     });
   });
   return h ? `<div class="dlog">${h}</div>` : "";
@@ -2697,6 +2714,7 @@ document.addEventListener("input", e => {
   if (t.dataset.set) { const [b, x, s, f] = t.dataset.set.split(","); S.draft.blocks[+b].exercises[+x].sets[+s][f] = t.value; if (!S.draft.startedAt) S.draft.startedAt = Date.now(); saveDraftSoon(); return; }
   if (t.dataset.tset) { const [b, x, s, f] = t.dataset.tset.split(","); S.draft.blocks[+b].exercises[+x].sets[+s][f] = t.value; saveDraftSoon(); return; }
   if (t.dataset.blk) { const [b, f] = t.dataset.blk.split(","); if (f === "total") return; o.blocks[+b][f] = t.value.replace(/[^0-9]/g, ""); touch(o); updTimerUI(); return; }
+  if ("wtstep" in t.dataset) { const v = num(t.value); S.settings = Object.assign({}, S.settings, { wtStep: v > 0 ? v : null }); saveSettingsSoon(); return; }
   if (t.dataset.setting) { const k = t.dataset.setting; S.settings = Object.assign({}, S.settings, { [k]: t.type === "checkbox" ? t.checked : Math.max(k === "rounds" ? 1 : 0, (k === "targetMin" ? num(t.value) : int(t.value, DEF[k])) ?? DEF[k]) }); saveSettingsSoon(); if (t.type === "checkbox") { if (k.startsWith("alarm")) rearmIfNeeded(); render(); } return; }
 });
 document.addEventListener("change", e => {

@@ -68,3 +68,21 @@ test("moveBlock: 0 -> 2 on three supersets", () => {
   T.moveBlock(o, 0, 2);
   assert.deepEqual(o.blocks.map(b => b.id), ["b2", "b3", "b1"]);
 });
+
+const sess = (...sets) => ({ sets: sets.map(([w, r]) => ({ w, r })) });
+
+test("suggestWeight: same top weight and reps held or up suggests +step", () => {
+  assert.equal(T.suggestWeight([sess(["25", "10"]), sess(["25", "10"])], 5), "30");
+  assert.equal(T.suggestWeight([sess(["25", "12"]), sess(["25", "10"])], 5), "30");
+});
+
+test("suggestWeight: no suggestion when reps dropped, weight differs, mixed, or one session", () => {
+  assert.equal(T.suggestWeight([sess(["25", "8"]), sess(["25", "10"])], 5), null);
+  assert.equal(T.suggestWeight([sess(["25", ""]), sess(["22.5", ""])], 5), null);
+  assert.equal(T.suggestWeight([sess(["25", "10"]), sess(["25", ""])], 5), null);
+  assert.equal(T.suggestWeight([sess(["25", "10"])], 5), null);
+});
+
+test("suggestWeight: no reps logged, fractional step", () => {
+  assert.equal(T.suggestWeight([sess(["25", ""]), sess(["25", ""])], 2.5), "27.5");
+});
