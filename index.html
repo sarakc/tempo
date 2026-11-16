@@ -100,7 +100,8 @@ select.in{appearance:none;background-image:linear-gradient(45deg,transparent 50%
 /* blocks */
 .bh{display:flex;align-items:center;gap:10px;margin-bottom:4px}
 .badge{width:30px;height:30px;border-radius:10px;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-family:"Space Grotesk",system-ui,sans-serif;font-weight:700;flex:none}
-.bl{font-weight:700;font-size:16px;flex:1}
+.bl{font-weight:700;font-size:16px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:440px){.bh.tm .bl{font-size:0}} /* the badge names the superset when the total chip needs the room */
 .stepper{display:flex;align-items:center;border-radius:999px;background:var(--bg2)}
 .stepper button{width:32px;height:32px;border:0;background:none;font-size:18px;line-height:1;color:var(--ink)}
 .stepper span{min-width:62px;text-align:center;font-size:13px;font-weight:600}
@@ -174,6 +175,21 @@ table.pt td:first-child{white-space:nowrap;color:var(--muted)}
 .chip{display:inline-flex;align-items:center;gap:2px;background:var(--bg2);border-radius:999px;padding:5px 5px 5px 12px;font-size:13.5px}
 .chip button{border:0;background:none;color:var(--muted);width:20px;height:20px;border-radius:50%;line-height:1;padding:0}
 .addrow{display:flex;gap:6px}
+/* time chips & time editor */
+.tchip{flex:none;gap:3px;border:1px solid var(--line);background:var(--card);color:var(--muted);padding:3px 10px;min-height:30px;font:600 13.5px/1 "Space Grotesk",system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.tchip.pin{color:var(--ink);border-color:var(--ink);font-weight:700;padding-left:7px}
+.tchip svg{width:14px;height:14px}
+.fitsum .tchip,.fitline .tchip{min-height:24px;padding:2px 8px;vertical-align:baseline;font-size:13px}
+.fitsum .tchip.pin,.fitline .tchip.pin{padding-left:5px}
+.te .lenbig{margin-top:4px}
+.te .bignum{font-size:72px}
+.te .testat{display:flex;align-items:center;justify-content:center;gap:4px;min-height:20px;margin-bottom:12px}
+.te .te-in{text-align:center;font-family:"Space Grotesk",system-ui,sans-serif;font-weight:600}
+.te-prev{font-size:13.5px;color:var(--muted);text-align:center;margin:10px 4px 6px;min-height:20px}
+.te .btn.big{margin:6px 0 4px}
+.te .tog{border-top:1px solid var(--line);margin-top:10px}
+.te .acts{margin-top:6px}
+.te [hidden]{display:none}
 /* sheet */
 #sheet{position:fixed;inset:0;z-index:40;display:none}
 #sheet.open{display:block}
@@ -499,6 +515,7 @@ const IC = {
   timer: svgI('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M10 2h4"/>', 16),
   cloudOk: svgI('<path d="M7 18.5a4.5 4.5 0 0 1-.9-8.9 6 6 0 0 1 11.6 1.4A3.75 3.75 0 0 1 17.25 18.5z"/><path d="M9.5 13.8l1.8 1.8 3.4-3.4"/>', 18),
   cloudSync: svgI('<path d="M7 18.5a4.5 4.5 0 0 1-.9-8.9 6 6 0 0 1 11.6 1.4A3.75 3.75 0 0 1 17.25 18.5z"/>', 18),
+  lock: svgI('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/>', 16),
   cloudOff: svgI('<path d="M7 18.5a4.5 4.5 0 0 1-.9-8.9 6 6 0 0 1 11.6 1.4A3.75 3.75 0 0 1 17.25 18.5z"/><path d="M4 4l16 16"/>', 18)
 };
 const DEF = { unit: "lb", rounds: 3, work: 45, restEx: 15, restRound: 60, restBlock: 90, ready: 10, restsOn: true, targetMin: 30, balance: "even", autoFit: true, cues: true, count321: false,
@@ -537,7 +554,7 @@ const S = {
   library: null, settings: {}, templates: [], workouts: [], lastIdx: new Map(),
   draft: null, edit: null, open: {}, progEx: "", muted: !!lsGet("wt.muted"), voice: lsGet("wt.voice") !== false,
   pickCat: "", pickQ: "", pickFlash: "", wq: "", wf: "", loaded: { lib: false, wk: false, tpl: false },
-  mode: lsGet("tempo.mode") || "workout", sounds: [], hf: "all", adv: false, lenCustom: false, showLog: false, cardLen: {}, fillCats: null, fillShape: "keep", prevTab: "today"
+  mode: lsGet("tempo.mode") || "workout", sounds: [], hf: "all", adv: false, lenCustom: false, showLog: false, cardLen: {}, fillCats: null, fillShape: "keep", prevTab: "today", te: null
 };
 if (S.tab === "edit") S.tab = "plans";
 if (S.tab === "library") S.tab = "settings";
@@ -666,6 +683,12 @@ function backCalcWork(b, d, totalSec) {
   const R = b.rounds, all = namedEx(b);
   const held = blockFixed(b, d) + R * all.filter(e => e.side).length * SIDE_SWITCH + all.reduce((a, e) => a + (exPin(e) == null ? 0 : R * exUnits(e) * exPin(e)), 0);
   return Math.max(5, Math.round((totalSec - held) / (R * ex.reduce((a, e) => a + exUnits(e), 0))));
+}
+/* Seconds typed in the time editor: "45" is 45 s, "1:30" is 90 s ("1:75" carries to 135). Anything else, or 0, is null. */
+function parseSecs(v) {
+  const m = String(v ?? "").trim().match(/^(?:(\d+):)?(\d+)$/); if (!m) return null;
+  const s = (m[1] ? +m[1] * 60 : 0) + +m[2];
+  return s > 0 ? s : null;
 }
 function parseDur(v) { v = String(v).trim(); if (!v) return null; if (v.includes(":")) { const [m, s] = v.split(":"); return int(m, 0) * 60 + int(s, 0); } const n = num(v); return n == null ? null : Math.round(n * 60); }
 function counts(d) {
@@ -1013,7 +1036,7 @@ function fitSummary(o) {
   const b = o.blocks.find(x => x.exercises.some(e => e.name.trim()));
   if (!b) return `<span class="muted">Add exercises and the timings will size themselves.</span>`;
   if (o.fit && o.fit.allSet) return `<span class="muted">All times are set by hand · <b>${fmt(totalAll(o))}</b></span>` + fitFixes(o);
-  return `<b>${sx(b.work)}</b> per exercise` + (o.restsOn ? ` · <b>${sx(b.restEx)}</b> to switch` : "") + ` · <b>${sx(b.restRound)}</b> between rounds` + (counts(o).nB ? ` · <b>${sx(o.restBlock)}</b> between supersets` : "") + fitFixes(o);
+  return `<b>${sx(b.work)}</b> per exercise` + (o.restsOn ? ` · ${restChip(o, "ex")} to switch` : "") + ` · ${restChip(o, "rd")} between rounds` + (counts(o).nB ? ` · ${restChip(o, "bl")} between supersets` : "") + fitFixes(o);
 }
 function blockSum(b, o) {
   if (!b.exercises.some(e => e.name.trim())) return "Add exercises to this superset";
@@ -1089,8 +1112,9 @@ function viewBuilder(o, opt) {
   o.blocks.forEach((b, bi) => {
     const R = b.rounds, L = LET[bi] || bi + 1;
     h += `<div class="card">
-      <div class="bh"><div class="badge">${L}</div><div class="bl">Superset ${L}</div>
+      <div class="bh${timer && namedEx(b).length ? " tm" : ""}"><div class="badge">${L}</div><div class="bl">Superset ${L}</div>
         <div class="stepper"><button data-act="rounds" data-b="${bi}" data-d="-1" aria-label="Fewer rounds">−</button><span>${R} round${R > 1 ? "s" : ""}</span><button data-act="rounds" data-b="${bi}" data-d="1" aria-label="More rounds">+</button></div>
+        ${timer && namedEx(b).length ? blkChip(o, bi) : ""}
         <button class="icon" data-act="rm-block" data-b="${bi}" aria-label="Remove superset">${IC.trash}</button></div>`;
     if (timer && fit) h += `<div class="bsum" id="bs${bi}">${blockSum(b, o)}</div>`;
     else if (timer) {
@@ -1105,6 +1129,7 @@ function viewBuilder(o, opt) {
       const last = showGrid && ex.name ? lastFor(ex.name) : null;
       h += `<div class="ex"><div class="exn"><span class="order">${L}${ei + 1}</span>
         <button class="name ${ex.name ? "" : "empty"}" data-act="pick" data-b="${bi}" data-e="${ei}">${ex.name ? esc(ex.name) : "+ Choose exercise"}</button>
+        ${timer && ex.name.trim() ? exChip(o, bi, ei) : ""}
         <button class="icon" data-act="rm-ex" data-b="${bi}" data-e="${ei}" aria-label="Remove exercise">✕</button></div>`;
       if (showGrid) {
         if (last) h += `<div class="hint">Last time (${esc(fmtDate(last.date))}): ${esc(fmtSets(last.sets, last.mode, unit)) || "nothing logged"}</div>`;
@@ -1426,7 +1451,7 @@ async function connectSync(btn) {
 /* ---------- sheet ---------- */
 let sheetCtx = null;
 function openSheet(title, html, ctx) { sheetCtx = ctx || null; $("#sheet-t").textContent = title; $("#sheet-b").innerHTML = html; $("#sheet").classList.add("open"); }
-function closeSheet() { $("#sheet").classList.remove("open"); sheetCtx = null; }
+function closeSheet() { $("#sheet").classList.remove("open"); sheetCtx = null; S.te = null; }
 function confirmSheetKeep(text, fn) {
   const ctx = sheetCtx;
   $("#sndb").insertAdjacentHTML("afterbegin", `<div class="mnote" id="sconf" style="margin:0 0 12px">${esc(text)}<div class="acts" style="margin-top:10px"><button class="btn sm" data-act="sconf-no">Cancel</button><button class="btn sm danger" data-act="sconf-yes">Delete</button></div></div>`);
@@ -1486,6 +1511,103 @@ function pickName(n) {
   const q = $("#pq"); if (q) q.value = "";
   renderPicker();
 }
+/* time editor: one sheet for exercise, superset, rest and segment times */
+const REST_NAME = { ex: "Transition", rd: "Round rest", bl: "Rest between supersets" };
+const REST_KEY = { ex: "restEx", rd: "restRound" };
+const isFit = o => o.mode === "timer" && !!o.autoFit;
+const restPin = (o, k) => { const v = int(o.restLocks?.[k], 0); return v > 0 ? v : null; };
+const restVal = (o, k) => k === "bl" ? int(o.restBlock, 0) : int((o.blocks.find(b => namedEx(b).length) || o.blocks[0] || {})[REST_KEY[k]], 0);
+/* What a target points at, its current time, whether it's pinned, and its floor; null if it no longer exists */
+function teInfo(o, t) {
+  if (!t) return null;
+  if (t.t === "ex") { const b = o.blocks[t.b], e = b?.exercises[t.e]; return e && e.name.trim() ? { title: e.name.trim(), v: exWork(e, b), pin: exPin(e) != null, floor: 10, b, e } : null; }
+  if (t.t === "blk") { const b = o.blocks[t.b]; return b && namedEx(b).length ? { title: "Superset " + (LET[t.b] || t.b + 1), v: blockTotal(b, o), pin: fitLocked(b, o), floor: 10, b } : null; }
+  if (t.t === "rest") return REST_NAME[t.k] ? { title: REST_NAME[t.k], v: restVal(o, t.k), pin: restPin(o, t.k) != null, floor: 5 } : null;
+  if (t.t === "seg" && (t.which === "warmup" || t.which === "cooldown")) { const g = o[t.which]; return { title: String(g?.name || "").trim() || (t.which === "warmup" ? "Warm-up" : "Cool-down"), v: segDur(g), pin: false, floor: 60 }; }
+  return null;
+}
+/* Set a target's time (clamped to its floor) and re-fit. Returns the supersets whose total had to go back to auto. */
+function teApply(o, t, v) {
+  const I = teInfo(o, t); if (!I || v == null) return [];
+  v = Math.max(I.floor, Math.round(v));
+  if (t.t === "ex") I.e.work = v;
+  else if (t.t === "blk") {
+    if (isFit(o)) I.b.lockTotal = v;
+    else { // manual: back-calculate the superset's work; a ±5 nudge always moves it at least 1s
+      let w = backCalcWork(I.b, o, v); if (w === int(I.b.work, 0) && v !== I.v && namedEx(I.b).some(e => exPin(e) == null)) w += Math.sign(v - I.v);
+      I.b.work = Math.max(10, w);
+    }
+  }
+  else if (t.t === "rest") o.restLocks = Object.assign({}, o.restLocks, { [t.k]: v });
+  else o[t.which] = Object.assign({ name: "" }, o[t.which], { dur: v });
+  const freed = [];
+  o.blocks.forEach((b, bi) => { const n = namedEx(b); if (int(b.lockTotal, 0) > 0 && n.length && !n.some(e => exPin(e) == null)) { delete b.lockTotal; freed.push(bi); } });
+  applyFit(o);
+  return freed;
+}
+function teAuto(o, t) {
+  const I = teInfo(o, t); if (!I) return;
+  if (t.t === "ex") delete I.e.work;
+  else if (t.t === "blk") delete I.b.lockTotal;
+  else if (t.t === "rest") { const L = Object.assign({}, o.restLocks); delete L[t.k]; o.restLocks = L; }
+  applyFit(o);
+}
+/* "What happens to the rest" line, worked out on a copy with the pending value applied */
+function tePreview(t, v) {
+  const o = clone(cur()); if (v != null) teApply(o, t, v);
+  const I = teInfo(o, t); if (!I) return "";
+  const L = bi => LET[bi] || bi + 1, self = t.t === "ex" ? I.e : null;
+  if (!isFit(o)) {
+    if (t.t === "rest") return "Rests are set on each superset while times are set by hand.";
+    if (t.t === "seg") return `The workout becomes ${fmt(totalAll(o))}.`;
+    if (t.t === "blk") return namedEx(I.b).some(e => exPin(e) == null) ? `Its exercises go to ${sx(int(I.b.work, 0))} each.` : "Every exercise here is set by hand.";
+    return `Superset ${L(t.b)} becomes ${fmt(blockTotal(I.b, o))}.`;
+  }
+  if (o.fit?.short) return `Too much to fit in ${num(o.targetMin)} min.`;
+  const auto = bs => bs.flatMap(b => namedEx(b).filter(e => e !== self && exPin(e) == null).map(e => ({ e, b })));
+  const outer = o.blocks.filter(b => !fitLocked(b, o) && b !== I.b);
+  const others = list => !list.length ? "" : list.length === 1 ? `The other exercise goes to ${sx(list[0].b.work)}.` : `The other ${list.length} exercises go to ${sx(list[0].b.work)} each.`;
+  if (t.t === "ex") {
+    const pool = fitLocked(I.b, o) ? auto([I.b]) : auto(o.blocks.filter(b => !fitLocked(b, o)));
+    return others(pool) || `Every exercise is set by hand, so the workout is ${fmt(totalAll(o))}.`;
+  }
+  if (t.t === "blk") {
+    const inner = auto([I.b]), rest = auto(outer);
+    return [inner.length ? `Its exercises go to ${sx(I.b.work)} each.` : "", others(rest)].filter(Boolean).join(" ") || `The workout is ${fmt(totalAll(o))}.`;
+  }
+  const pool = auto(o.blocks.filter(b => !fitLocked(b, o)));
+  return pool.length ? `Work goes to ${sx(pool[0].b.work)}.` : `The workout is ${fmt(totalAll(o))}.`;
+}
+function openTimeEditor(target) { S.te = target; renderTimeEditor(true); }
+function renderTimeEditor(open) {
+  const o = cur(), t = S.te, I = teInfo(o, t);
+  if (!I) { closeSheet(); return; }
+  const fit = isFit(o), status = I.pin ? `${IC.lock}Pinned` : t.t === "seg" ? "" : fit ? "Automatic" : t.t === "ex" ? "Same as its superset" : "";
+  let h = `<div class="te">
+    <div class="lenbig"><button class="rb" data-act="te-step" data-d="-5" aria-label="5 seconds less">${IC.minus}</button><div class="bignum">${sx(I.v)}</div><button class="rb" data-act="te-step" data-d="5" aria-label="5 seconds more">${IC.plus}</button></div>
+    <div class="lenunit testat">${status}</div>
+    <input class="in te-in" data-te-in autocomplete="off" autocapitalize="off" enterkeyhint="done" placeholder="Type 45 or 1:30" aria-label="Time, in seconds or minutes:seconds">
+    <div class="te-prev" id="te-prev">${tePreview(t)}</div>
+    ${I.pin ? `<button class="btn big" data-act="te-auto">Back to auto</button>` : ""}`;
+  if (t.t === "ex") h += `<label class="tog"><input type="checkbox" data-act="te-side" ${I.e.side ? "checked" : ""}> Each side</label>
+    <div class="acts"><button class="btn" data-act="te-up" hidden>Move up</button><button class="btn" data-act="te-down" hidden>Move down</button><button class="btn danger" data-act="te-rm">Remove</button></div>`;
+  h += `</div>`;
+  if (open || !sheetCtx?.te) openSheet(I.title, h, { te: true });
+  else { $("#sheet-t").textContent = I.title; $("#sheet-b").innerHTML = h; }
+}
+/* After any time change: save, refresh the page in place, redraw the sheet */
+function teDone(o, freed) {
+  touch(o); updTimerUI(); renderTimeEditor();
+  (freed || []).forEach(bi => toast(`Superset ${LET[bi] || bi + 1} total now comes from its exercises`));
+}
+const teAttr = t => esc(JSON.stringify(t));
+function timeChip(t, txt, pin, label, id) {
+  return `<button class="chip tchip ${pin ? "pin" : "auto"}"${id ? ` id="${id}"` : ""} data-act="te-open" data-te="${teAttr(t)}" aria-label="${esc(label)}: ${esc(txt)}${pin ? ", pinned" : ""}">${pin ? IC.lock : ""}${esc(txt)}</button>`;
+}
+const exChip = (o, bi, ei) => { const b = o.blocks[bi], e = b.exercises[ei]; return timeChip({ t: "ex", b: bi, e: ei }, sx(exWork(e, b)), exPin(e) != null, e.name.trim() + " time", `tc${bi}-${ei}`); };
+const blkChip = (o, bi) => timeChip({ t: "blk", b: bi }, fmt(blockTotal(o.blocks[bi], o)), fitLocked(o.blocks[bi], o), `Superset ${LET[bi] || bi + 1} total`, `tcb${bi}`);
+const restChip = (o, k) => timeChip({ t: "rest", k }, sx(restVal(o, k)), restPin(o, k) != null, REST_NAME[k]);
+function removeExercise(o, bi, ei) { o.blocks[bi].exercises.splice(ei, 1); touch(o); render(); }
 /* fill for me */
 function libPool(cats) {
   const lib = S.library?.categories || [], m = new Map();
@@ -2188,7 +2310,13 @@ document.addEventListener("click", e => {
     }
     case "add-block": openPicker(o.blocks.length, 0); break;
     case "add-ex": openPicker(bi, o.blocks[bi].exercises.length); break;
-    case "rm-ex": o.blocks[bi].exercises.splice(ei, 1); touch(o); render(); break;
+    case "rm-ex": removeExercise(o, bi, ei); break;
+    case "te-open": { let tg = null; try { tg = JSON.parse(t.dataset.te); } catch {} if (tg) openTimeEditor(tg); break; }
+    case "te-step": { if (!sheetCtx?.te) break; const I = teInfo(o, S.te); if (!I) { closeSheet(); break; } teDone(o, teApply(o, S.te, Math.max(I.floor, I.v + +t.dataset.d))); break; }
+    case "te-auto": if (sheetCtx?.te) { teAuto(o, S.te); teDone(o); } break;
+    case "te-side": { if (!sheetCtx?.te || S.te.t !== "ex") break; const I = teInfo(o, S.te); if (!I) break; if (I.e.side) delete I.e.side; else I.e.side = true; teDone(o); break; }
+    case "te-rm": if (sheetCtx?.te && S.te.t === "ex" && teInfo(o, S.te)) { const { b: B, e: E } = S.te; closeSheet(); removeExercise(o, B, E); } break;
+    case "te-up": case "te-down": break; // Task 9 wires moving
     case "pick": openPicker(bi, ei); break;
     case "pcat": S.pickCat = t.dataset.c; renderPicker(); break;
     case "pick-name": if (sheetCtx?.pick) pickName(t.dataset.n); break;
@@ -2295,6 +2423,7 @@ document.addEventListener("submit", e => {
 document.addEventListener("input", e => {
   const t = e.target, o = cur();
   if (t.id === "pq") { S.pickQ = t.value; renderPicker(); return; }
+  if ("teIn" in t.dataset) { const p = $("#te-prev"); if (p && S.te) p.innerHTML = tePreview(S.te, parseSecs(t.value)); return; }
   if (t.dataset.stext) { S.settings = Object.assign({}, S.settings, { [t.dataset.stext]: t.value }); saveSettingsSoon(); return; }
   if ("ftask" in t.dataset) { if (T) T.task = t.value; S.settings = Object.assign({}, S.settings, { focusTask: t.value }); saveSettingsSoon(); return; }
   if ("dnote" in t.dataset) { if (T && T.doneData) T.doneData.notes = t.value; return; }
@@ -2316,6 +2445,7 @@ document.addEventListener("input", e => {
 document.addEventListener("change", e => {
   const t = e.target, o = cur();
   if (t.dataset.change === "src") { const v = t.value; t.value = ""; if (v) loadSource(v); return; }
+  if ("teIn" in t.dataset) { const v = parseSecs(t.value); if (v != null && sheetCtx?.te) teDone(o, teApply(o, S.te, v)); else { t.value = ""; const p = $("#te-prev"); if (p && S.te) p.innerHTML = tePreview(S.te); } return; }
   if (t.dataset.change === "prog") { S.progEx = t.value; render(); return; }
   if (t.id === "snd-file" && t.files && t.files[0]) { const f = t.files[0]; t.value = ""; addSoundFile(f); return; }
   if (t.id === "restore-file" && t.files && t.files[0]) {
@@ -2348,12 +2478,13 @@ function updTimerUI() {
   o.blocks.forEach((b, i) => { set("bw" + i, b.work); set("be" + i, b.restEx); set("br" + i, b.restRound); set("bt" + i, fmt(blockTotal(b, o))); });
   if (arguments[0]) o.blocks.forEach((b, i) => { const n = document.querySelector(`[data-k="bt${i}"]`); if (n) n.value = fmt(blockTotal(b, o)); });
   o.blocks.forEach((b, i) => { const n = $("#bs" + i); if (n) n.innerHTML = blockSum(b, o); });
+  o.blocks.forEach((b, i) => { const n = $("#tcb" + i); if (n) n.outerHTML = blkChip(o, i); b.exercises.forEach((e, j) => { const m = $(`#tc${i}-${j}`); if (m) m.outerHTML = exChip(o, i, j); }); });
   const lp = $("#lenpills"); if (lp) lp.querySelectorAll("button").forEach(b => b.classList.toggle("on", !!o.autoFit && num(o.targetMin) === +b.dataset.v));
   const stt = $("#st-t"); if (stt) stt.textContent = fmt(totalAll(o));
   set("restBlock", o.restBlock);
   renderBar();
 }
-document.addEventListener("keydown", e => { if (e.key === "Escape" && $("#sheet").classList.contains("open")) closeSheet(); if (e.key === " " && T && !T.done && !T.ask && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); togglePause(); } });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && $("#sheet").classList.contains("open")) closeSheet(); if (e.key === "Enter" && e.target.dataset && "teIn" in e.target.dataset) e.target.blur(); if (e.key === " " && T && !T.done && !T.ask && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); togglePause(); } });
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") Sync.soon(300); else if (Sync.pending) Sync.now();
   if (document.visibilityState === "visible" && AL && $("#alarm").classList.contains("open")) wakeOn();
   if (!T || T.done) return; if (document.visibilityState === "visible") { wakeOn(); tick(); } else saveResume(); });
