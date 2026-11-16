@@ -216,6 +216,8 @@ table.pt td:first-child{white-space:nowrap;color:var(--muted)}
 /* toast & rest pill */
 #toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:999px;box-shadow:0 8px 24px rgba(0,0,0,.18);font-weight:600;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:60;max-width:90vw;text-align:center}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.undo{pointer-events:auto;white-space:nowrap}
+#toast button{all:unset;cursor:pointer;margin-left:14px;font-weight:700;text-decoration:underline;padding:4px 2px}
 #restpill{position:fixed;right:16px;bottom:calc(80px + env(safe-area-inset-bottom));z-index:20;display:none}
 #restpill .rp{display:flex;align-items:center;gap:2px;background:var(--ink);color:var(--bg);border-radius:999px;padding:4px;box-shadow:0 8px 24px rgba(0,0,0,.22)}
 #restpill button{border:0;background:none;color:inherit;font-weight:700;padding:10px 14px;border-radius:999px;display:flex;align-items:center;gap:6px}
@@ -1594,6 +1596,7 @@ function teInfo(o, t) {
 /* Set a target's time (clamped to its floor) and re-fit. Returns the supersets whose total had to go back to auto. */
 function teApply(o, t, v) {
   const I = teInfo(o, t); if (!I || v == null) return [];
+  const pre = clone(o);
   v = Math.max(I.floor, Math.round(v));
   if (t.t === "ex") I.e.work = v;
   else if (t.t === "blk") {
@@ -1608,6 +1611,7 @@ function teApply(o, t, v) {
   const freed = [];
   o.blocks.forEach((b, bi) => { const n = namedEx(b); if (int(b.lockTotal, 0) > 0 && n.length && !n.some(e => exPin(e) == null)) { delete b.lockTotal; freed.push(bi); } });
   applyFit(o);
+  freed.pre = pre;
   return freed;
 }
 function teAuto(o, t) {
@@ -1663,7 +1667,7 @@ function renderTimeEditor(open) {
 /* After any time change: save, refresh the page in place, redraw the sheet */
 function teDone(o, freed) {
   touch(o); updTimerUI(); renderTimeEditor();
-  (freed || []).forEach(bi => toast(`Superset ${LET[bi] || bi + 1} total now comes from its exercises`));
+  (freed || []).forEach(bi => snapUndo(`Superset ${LET[bi] || bi + 1} total now comes from its exercises`, freed.pre));
 }
 const teAttr = t => esc(JSON.stringify(t));
 function timeChip(t, txt, pin, label, id) {
@@ -1672,7 +1676,7 @@ function timeChip(t, txt, pin, label, id) {
 const exChip = (o, bi, ei) => { const b = o.blocks[bi], e = b.exercises[ei]; return timeChip({ t: "ex", b: bi, e: ei }, sx(exWork(e, b)), exPin(e) != null, e.name.trim() + " time", `tc${bi}-${ei}`); };
 const blkChip = (o, bi) => timeChip({ t: "blk", b: bi }, fmt(blockTotal(o.blocks[bi], o)), fitLocked(o.blocks[bi], o), `Superset ${LET[bi] || bi + 1} total`, `tcb${bi}`);
 const restChip = (o, k) => timeChip({ t: "rest", k }, sx(restVal(o, k)), restPin(o, k) != null, REST_NAME[k]);
-function removeExercise(o, bi, ei) { S.tlSel = null; o.blocks[bi].exercises.splice(ei, 1); touch(o); render(); }
+function removeExercise(o, bi, ei) { snapUndo("Exercise removed"); S.tlSel = null; o.blocks[bi].exercises.splice(ei, 1); touch(o); render(); }
 /* fill for me */
 function libPool(cats) {
   const lib = S.library?.categories || [], m = new Map();
@@ -1709,13 +1713,14 @@ function pickRandom(pool, n, avoid) {
 function doFill(kind) {
   const o = cur(), cats = S.library?.categories || [], pool = libPool(cats.length ? S.fillCats : null);
   if (!pool.length) { toast(cats.length ? "Pick at least one category with exercises in it." : "Add some exercises to your library first."); return; }
+  const pre = clone(o);
   if (kind === "shape") { const lb = o.blocks[0]; o.blocks = SHAPES[S.fillShape].map(n => mkBlock(Array(n).fill(""), lb?.rounds, lb)); }
   const slots = []; o.blocks.forEach(b => b.exercises.forEach(e => { if (kind !== "empty" || !e.name.trim()) slots.push(e); }));
   const avoid = new Set(kind === "empty" ? o.blocks.flatMap(b => b.exercises.map(e => e.name.trim().toLowerCase()).filter(Boolean)) : []);
   const picks = pickRandom(pool, slots.length, avoid);
-  slots.forEach((e, i) => { if (picks[i] && picks[i] !== e.name) { e.name = picks[i]; e.sets = emptySets(e.sets.length || 1); } });
+  slots.forEach((e, i) => { if (picks[i] && picks[i] !== e.name) { e.name = picks[i]; e.sets = emptySets(e.sets.length || 1); delete e.work; delete e.side; } });
   touch(o); closeSheet(); render();
-  toast(picks.length < slots.length ? `Only found ${picks.length} — the rest are still open.` : "Filled — tap any exercise to swap it.");
+  snapUndo(picks.length < slots.length ? `Shuffled — only found ${picks.length}, the rest are still open` : "Shuffled", pre);
 }
 function openSavePlan(src) { // src: the draft, or a logged workout
   const fromDraft = src === S.draft, base = fromDraft && src.planId ? tplById(src.planId) : null;
@@ -2279,7 +2284,25 @@ function stopRest() { if (RP) clearInterval(RP.int); RP = null; renderRest(); }
 
 /* ---------- actions ---------- */
 let toastT = null;
-function toast(m) { const t = $("#toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("show"), 2600); }
+function toast(m, undoable) {
+  const t = $("#toast"); if (undoable) t.innerHTML = `${esc(m)}<button data-act="undo">Undo</button>`; else t.textContent = m;
+  t.classList.toggle("undo", !!undoable); t.classList.add("show"); clearTimeout(toastT);
+  toastT = setTimeout(() => { t.classList.remove("show", "undo"); }, undoable ? 6000 : 2600);
+}
+/* one-level undo: snapshot of what is being edited, taken before the change (pre = already-taken snapshot) */
+function snapUndo(msg, pre) {
+  const o = cur(); S.undo = { plan: isPlan(o), obj: pre || clone(o), at: Date.now() };
+  if (S.edit) S.undo.eid = S.edit.id;
+  toast(msg, true);
+}
+function doUndo() {
+  const u = S.undo; S.undo = null; $("#toast").classList.remove("show", "undo");
+  if (!u || Date.now() - u.at > 6500) return;
+  if (u.plan ? !(S.edit && S.edit.id === u.eid && S.tab === "edit") : S.tab === "edit") return;
+  closeSheet(); S.tlSel = null;
+  const o = normDraft(clone(u.obj)); if (u.plan) S.edit.obj = o; else S.draft = o;
+  touch(o); render();
+}
 function setDraft(d) { S.draft = normDraft(d); applyFit(S.draft); S.showLog = false; S.lenCustom = false; saveDraftSoon(); }
 function goToday() { S.tab = "today"; lsSet("wt.tab", "today"); window.scrollTo(0, 0); render(); }
 function useOnToday(nd, msg, then) {
@@ -2369,7 +2392,7 @@ document.addEventListener("click", e => {
     case "rounds": { const b = o.blocks[bi]; b.rounds = Math.min(10, Math.max(1, b.rounds + +t.dataset.d)); normDraft(o); touch(o); render(); break; }
     case "rm-block": {
       const has = o.blocks[bi].exercises.some(x => x.name || x.sets.some(s => s.w || s.r));
-      const go = () => { o.blocks.splice(bi, 1); touch(o); render(); };
+      const go = () => { snapUndo("Superset removed"); o.blocks.splice(bi, 1); touch(o); render(); };
       has ? confirmSheet(`Remove Superset ${LET[bi]} and everything in it?`, "Remove", go, true) : go(); break;
     }
     case "add-block": openPicker(o.blocks.length, 0); break;
@@ -2377,9 +2400,10 @@ document.addEventListener("click", e => {
     case "rm-ex": removeExercise(o, bi, ei); break;
     case "te-open": { let tg = null; try { tg = JSON.parse(t.dataset.te); } catch {} if (tg) openTimeEditor(tg); break; }
     case "te-step": { if (!sheetCtx?.te) break; const I = teInfo(o, S.te); if (!I) { closeSheet(); break; } teDone(o, teApply(o, S.te, Math.max(I.floor, I.v + +t.dataset.d))); break; }
-    case "te-auto": if (sheetCtx?.te) { teAuto(o, S.te); teDone(o); } break;
+    case "te-auto": if (sheetCtx?.te) { snapUndo("Back to auto"); teAuto(o, S.te); teDone(o); } break;
     case "te-side": { if (!sheetCtx?.te || S.te.t !== "ex") break; const I = teInfo(o, S.te); if (!I) break; if (I.e.side) delete I.e.side; else I.e.side = true; teDone(o); break; }
     case "te-rm": if (sheetCtx?.te && S.te.t === "ex" && teInfo(o, S.te)) { const { b: B, e: E } = S.te; closeSheet(); removeExercise(o, B, E); } break;
+    case "undo": doUndo(); break;
     case "te-up": case "te-down": break; // Task 9 wires moving
     case "pick": openPicker(bi, ei); break;
     case "pcat": S.pickCat = t.dataset.c; renderPicker(); break;
@@ -2391,8 +2415,8 @@ document.addEventListener("click", e => {
     case "fill-go": doFill(t.dataset.v); break;
     case "len": S.lenCustom = t.dataset.v === "custom"; o.autoFit = true; if (!S.lenCustom) o.targetMin = t.dataset.v; touch(o); render();
       if (S.lenCustom) { const n = document.querySelector('[data-k="targetMin"]'); if (n) { n.focus(); try { n.select(); } catch {} } } break;
-    case "unpin": delete o.blocks[bi].exercises[ei].work; touch(o); render(); break;
-    case "unpin-blk": delete o.blocks[bi].lockTotal; touch(o); render(); break;
+    case "unpin": snapUndo("Back to auto"); delete o.blocks[bi].exercises[ei].work; touch(o); render(); break;
+    case "unpin-blk": snapUndo("Back to auto"); delete o.blocks[bi].lockTotal; touch(o); render(); break;
     case "fit-len": o.targetMin = t.dataset.v; S.lenCustom = !LENS.includes(+t.dataset.v); touch(o); render(); break;
     case "fit-rounds": { const R = +t.dataset.v; o.blocks.forEach(b => { b.rounds = Math.min(b.rounds, R); }); normDraft(o); touch(o); render(); toast(`Now ${R} round${R > 1 ? "s" : ""} per superset`); break; }
     case "adv": S.adv = !S.adv; render(); break;
@@ -2403,7 +2427,7 @@ document.addEventListener("click", e => {
     case "save-tpl": openSavePlan(S.draft); break;
     case "plan-update": savePlan(true); break;
     case "plan-new": savePlan(false); break;
-    case "clear": confirmSheet("Clear today's logged numbers and notes?", "Clear", () => { S.draft.blocks.forEach(b => b.exercises.forEach(x => x.sets = emptySets(b.rounds))); S.draft.notes = ""; S.draft.startedAt = null; S.draft.durationSec = null; delete S.draft.resume; S.showLog = false; saveDraftSoon(); render(); }, true); break;
+    case "clear": confirmSheet("Clear today's logged numbers and notes?", "Clear", () => { snapUndo("Cleared"); S.draft.blocks.forEach(b => b.exercises.forEach(x => x.sets = emptySets(b.rounds))); S.draft.notes = ""; S.draft.startedAt = null; S.draft.durationSec = null; delete S.draft.resume; S.showLog = false; saveDraftSoon(); render(); }, true); break;
     case "finish": finishWorkout(); break;
     case "start": startTimer(false); break;
     case "restart": delete S.draft.resume; startTimer(true); break;
