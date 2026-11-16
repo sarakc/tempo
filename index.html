@@ -783,6 +783,8 @@ function normExercise(e) {
   if (o.side === true) r.side = true;
   return r;
 }
+/* A saved workout's exercise as a name: old saves hold plain strings, newer ones { name, work?, side? } */
+const exLabel = e => typeof e === "string" ? e : (e && e.name) || "";
 function planExercise(e) {
   const r = { name: String(e.name || "").trim() };
   const w = parseInt(e.work, 10); if (isFinite(w) && w > 0) r.work = w;
@@ -1499,7 +1501,7 @@ function planCard(t) {
   const blocks = t.blocks || [], timer = t.mode === "timer";
   const shape = blocks.map(b => (b.exercises || []).length).join(" + ");
   const len = timer ? (t.autoFit ? `${num(t.targetMin)} min` : fmt(totalAll(objFromPlan(t)))) : "";
-  const exs = blocks.map((b, i) => `<b>${LET[i]}</b> ` + esc((b.exercises || []).join(", "))).join(" &nbsp;·&nbsp; ");
+  const exs = blocks.map((b, i) => `<b>${LET[i]}</b> ` + esc((b.exercises || []).map(exLabel).join(", "))).join(" &nbsp;·&nbsp; ");
   let lens = "", acts;
   if (timer) {
     const { opts, def } = planLens(t), ch = S.cardLen[t.id] ?? def;
@@ -1521,7 +1523,7 @@ function viewPlans() {
     <input class="in search" id="wq" data-k="wq" type="search" placeholder="Search workouts or exercises" value="${esc(S.wq)}">
     <div class="fchips"><button data-act="wf" data-f="" class="${!f ? "on" : ""}">All</button><button data-act="wf" data-f="★" class="${f === "★" ? "on" : ""}">★ Favorites</button>${folders.map(x => `<button data-act="wf" data-f="${esc(x)}" class="${f === x ? "on" : ""}">${esc(x)}</button>`).join("")}</div>`;
   if (!S.templates.length) return h + `<div class="card empty">${S.dbState === "on" && !S.loaded.tpl ? "Loading…" : `<div class="etitle">No saved workouts yet</div>Build one on Today and tap “Save as workout”, or start a new one here.<div style="margin-top:14px"><button class="btn primary" data-act="new-t">${IC.plusS}New workout</button></div>`}</div>`;
-  let list = S.templates.filter(t => !q || (t.name + " " + (t.folder || "") + " " + (t.blocks || []).map(b => (b.exercises || []).join(" ")).join(" ")).toLowerCase().includes(q));
+  let list = S.templates.filter(t => !q || (t.name + " " + (t.folder || "") + " " + (t.blocks || []).map(b => (b.exercises || []).map(exLabel).join(" ")).join(" ")).toLowerCase().includes(q));
   if (f === "★") list = list.filter(t => t.starred); else if (f) list = list.filter(t => (t.folder || "").trim() === f);
   if (!list.length) return h + `<div class="card empty">No workouts match.</div>`;
   if (f || q) return h + list.map(planCard).join("");

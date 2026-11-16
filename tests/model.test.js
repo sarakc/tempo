@@ -86,3 +86,10 @@ test("suggestWeight: no suggestion when reps dropped, weight differs, mixed, or 
 test("suggestWeight: no reps logged, fractional step", () => {
   assert.equal(T.suggestWeight([sess(["25", ""]), sess(["25", ""])], 2.5), "27.5");
 });
+
+test("exLabel: saved exercises read as names, old strings and new objects alike", () => {
+  const saved = [T.planExercise({ id: "a", name: " Plank ", sets: [], work: 60, side: true }), T.planExercise({ name: "Squat", sets: [] }), "Row", null];
+  const line = saved.map(T.exLabel).join(", ");
+  assert.equal(line, "Plank, Squat, Row, ");
+  assert.doesNotMatch(line, /\[object/);
+});
