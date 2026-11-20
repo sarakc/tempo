@@ -1003,25 +1003,26 @@ function localDB() {
   for (const k in store) if (syncable(k) && !meta[k]) meta[k] = { t: 1 };
   const subs = new Set(), cl = o => JSON.parse(JSON.stringify(o));
   const save = () => { try { localStorage.setItem(DB_KEY, JSON.stringify(store)); localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch (e) { const er = new Error("Storage is full"); er.code = "quota_exceeded"; throw er; } };
-  const notify = () => setTimeout(() => subs.forEach(f => { try { f(); } catch {} }), 0);
+  // a write tells only the listeners on its record or collection (a draft save used to re-read every workout and redraw); no key tells all
+  const notify = key => setTimeout(() => subs.forEach(f => { if (key && f.p !== key && !(f.n && key.startsWith(f.n + "/") && key.split("/").length === 2)) return; try { f(); } catch {} }), 0);
   const api = { onChange: null };
   const stamp = (p, del) => { if (!syncable(p)) return; const t = stampNow(meta[p] && meta[p].t); meta[p] = del ? { t, del: 1 } : { t }; if (api.onChange) api.onChange(); };
   const snapDoc = p => ({ exists: p in store, data: () => cl(store[p]) });
   const inColl = n => Object.keys(store).filter(k => k.startsWith(n + "/") && k.split("/").length === 2);
   const snapColl = n => ({ metadata: { fromCache: false }, docs: inColl(n).map(k => ({ id: k.slice(n.length + 1), data: () => cl(store[k]) })) });
   const doc = p => ({
-    onSnapshot(cb) { const f = () => cb(snapDoc(p)); subs.add(f); f(); return () => subs.delete(f); },
+    onSnapshot(cb) { const f = () => cb(snapDoc(p)); f.p = p; subs.add(f); f(); return () => subs.delete(f); },
     async get() { return snapDoc(p); },
-    async set(d) { store[p] = cl(d); stamp(p); save(); notify(); },
-    async delete() { delete store[p]; stamp(p, true); save(); notify(); }
+    async set(d) { store[p] = cl(d); stamp(p); save(); notify(p); },
+    async delete() { delete store[p]; stamp(p, true); save(); notify(p); }
   });
   const collection = n => { const c = { orderBy: () => c, limit: () => c,
-    onSnapshot(cb) { const f = () => cb(snapColl(n)); subs.add(f); f(); return () => subs.delete(f); },
-    async add(d) { const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6); store[n + "/" + id] = cl(d); stamp(n + "/" + id); save(); notify(); return { id }; } }; return c; };
+    onSnapshot(cb) { const f = () => cb(snapColl(n)); f.n = n; subs.add(f); f(); return () => subs.delete(f); },
+    async add(d) { const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6); store[n + "/" + id] = cl(d); stamp(n + "/" + id); save(); notify(n + "/" + id); return { id }; } }; return c; };
   window.addEventListener("storage", e => { if (e.key === DB_KEY || e.key === META_KEY) { load(); notify(); } });
   return Object.assign(api, { doc, collection,
     // a starter record that any real edit (on this or another device) should replace
-    seed(p, d) { store[p] = cl(d); meta[p] = { t: 0 }; save(); notify(); },
+    seed(p, d) { store[p] = cl(d); meta[p] = { t: 0 }; save(); notify(p); },
     exportAll: () => cl(store),
     importAll(o) { const old = store; store = cl(o); for (const k in old) if (!(k in store)) stamp(k, true); for (const k in store) stamp(k); save(); notify(); },
     syncSnapshot() {
