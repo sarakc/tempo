@@ -1524,6 +1524,7 @@ const cycRow = (label, k) => { const v = settings()[k]; return `<button class="o
 const stepRow = (label, k, unit) => { const v = settings()[k]; return `<div class="orow"><span class="grow">${label}</span><div class="stepper"><button data-act="mstep" data-k="${k}" data-d="-1" aria-label="Less ${label}">−</button><span>${v}${unit ? " " + unit : ""}</span><button data-act="mstep" data-k="${k}" data-d="1" aria-label="More ${label}">+</button></div></div>`; };
 const sndRow = (label, mode, k) => `<button class="orow" data-act="${mode ? "snd-mode" : "snd-ev"}" data-m="${mode || ""}" data-k="${k}"><span class="grow">${label}</span><span class="ov">${esc(soundName(settings()[k]))}${mode ? " …" : ""}</span><span class="chev">${IC.chev}</span></button>`;
 const togRow = (label, k) => `<label class="orow"><span class="grow">${label}</span><input type="checkbox" data-setting="${k}" ${settings()[k] ? "checked" : ""}></label>`;
+/* @testable */
 function focusSteps(st) {
   st = st || settings(); const steps = [], R = int(st.focusRounds, 4);
   for (let i = 0; i < R; i++) {
@@ -1539,6 +1540,7 @@ function medSteps(st) {
   steps.push({ k: "work", kind: "med", dur: Math.round((num(st.medMin) || 10) * 60), label: "Meditate" });
   return steps;
 }
+/* @end-testable */
 const hm = sec => { const m = Math.round(sec / 60), h = Math.floor(m / 60); return h ? `${h} h ${m % 60} min` : sec > 0 && m === 0 ? "<1 min" : `${m} min`; };
 function viewFocus() {
   const st = settings(), steps = focusSteps(st), tot = steps.reduce((a, x) => a + x.dur, 0);
@@ -2174,7 +2176,7 @@ function startSession(mode, steps, extra) {
   ensureAudio(); wakeOn(); stopRest(); closeSheet(); $("#toast").classList.remove("show");
   { const st0 = settings(); warmSounds([st0.sFocusStart, st0.sFocusBreak, st0.sFocusCount, st0.sFocusDone, st0.sMedStart, st0.sMedInterval, st0.sMedEnd]); }
   const now = Date.now();
-  T = Object.assign({ mode, steps, i: 0, paused: false, remaining: steps[0].dur * 1000, endAt: now + steps[0].dur * 1000, started: now, pausedMs: 0, pausedAt: null, cueKey: null, done: false, ask: false }, extra || {});
+  T = Object.assign({ mode, steps, i: 0, paused: false, remaining: steps[0].dur * 1000, endAt: now + steps[0].dur * 1000, started: now, lastTick: now, pausedMs: 0, pausedAt: null, cueKey: null, done: false, ask: false }, extra || {});
   $("#timer").classList.add("open"); renderRest(); renderBar();
   T.int = setInterval(tick, 100);
   bgAudioOff(); cue(); drawTimer(true);
@@ -2233,17 +2235,37 @@ function secondCue(st, sec) {
   if (st.dur >= 25 && sec === 10) sayIfFree("Ten seconds");
   else if (st.dur >= 40 && sec === Math.round(st.dur / 2) && sec > 12) sayIfFree("Halfway");
 }
+/* @testable */
+/* Moves a running timer t on to time now (ms). Each step is credited only the time inside its own scheduled
+   span (t.spent, ms by step index), so a lock or a trip to another app is shared out over the steps it covered.
+   Stops at a hold step, paused from that step's scheduled start. Returns "done" once the last step has ended
+   (t.endAt is then its scheduled end), "moved" if the step changed, otherwise "". */
+function catchUp(t, now) {
+  const sp = t.spent || (t.spent = {});
+  let from = t.lastTick ?? now, moved = false; t.lastTick = now;
+  for (;;) {
+    const to = Math.min(now, t.endAt); if (to > from) sp[t.i] = (sp[t.i] || 0) + to - from;
+    if (t.endAt > now) break;
+    if (t.i >= t.steps.length - 1) return "done";
+    from = t.endAt; t.i++; moved = true;
+    if (t.steps[t.i].hold) { t.paused = true; t.held = true; t.pausedAt = from; t.remaining = t.steps[t.i].dur * 1000; break; }
+    t.endAt += t.steps[t.i].dur * 1000;
+  }
+  return moved ? "moved" : "";
+}
+/* Seconds and whole rounds logged for the steps of one kind ("focus" or "med"). A finished session gets its last step in full. */
+function loggedTime(steps, spent, early, kind) {
+  let sec = 0, rounds = 0; spent = spent || {};
+  steps.forEach((x, j) => { if (x.kind !== kind) return; const got = !early && j === steps.length - 1 ? x.dur : Math.min(x.dur, Math.round((spent[j] || 0) / 1000)); sec += got; if (got >= x.dur * 0.9) rounds++; });
+  return { sec, rounds };
+}
+/* @end-testable */
 function tick() {
   if (!T || T.paused || T.done) return;
-  const nowT = Date.now(); if (T.lastTick) { T.spent = T.spent || {}; T.spent[T.i] = (T.spent[T.i] || 0) + (nowT - T.lastTick); } T.lastTick = nowT;
-  let changed = false;
-  while (!T.done && T.endAt - Date.now() <= 0) {
-    if (T.i >= T.steps.length - 1) { finishTimer(false); return; }
-    T.i++; changed = true;
-    if (T.steps[T.i].hold) { T.paused = true; T.held = true; T.pausedAt = Date.now(); T.remaining = T.steps[T.i].dur * 1000; break; }
-    T.endAt += T.steps[T.i].dur * 1000;
-  }
-  if (!T.paused) T.remaining = T.endAt - Date.now();
+  const nowT = Date.now(), moved = catchUp(T, nowT);
+  if (moved === "done") { finishTimer(false, T.endAt); return; } // logged as ending when the last step did, not when the screen came back
+  const changed = moved === "moved";
+  if (!T.paused) T.remaining = T.endAt - nowT;
   const st = T.steps[T.i], sec = Math.ceil(T.remaining / 1000);
   if (changed) { T.cueKey = T.i + ":" + sec; if (T.remaining > 400) cue(); saveResume(); drawTimer(true); return; }
   const key = T.i + ":" + sec;
@@ -2273,9 +2295,9 @@ function adjustStep(d) {
 }
 function prevStep() { const st = T.steps[T.i]; const el = st.dur * 1000 - T.remaining; gotoStep(el > 3000 || T.i === 0 ? T.i : T.i - 1); }
 const elapsedSec = () => T ? Math.round(((T.done ? T.doneAt : (T.paused ? T.pausedAt : Date.now())) - T.started - T.pausedMs) / 1000) : 0;
-function finishTimer(early) {
+function finishTimer(early, at) {
   if (T.paused && T.pausedAt) { T.pausedMs += Date.now() - T.pausedAt; T.pausedAt = null; }
-  T.done = true; T.early = !!early; T.ask = false; T.doneAt = Date.now(); clearInterval(T.int); wakeOff();
+  T.done = true; T.early = !!early; T.ask = false; T.doneAt = at || Date.now(); clearInterval(T.int); wakeOff();
   if (T.mode === "workout") { S.draft.durationSec = elapsedSec(); delete S.draft.resume; saveDraftSoon(); }
   else T.doneData = doneDataFor(early);
   if (!early) {
@@ -2294,12 +2316,10 @@ function leaveTimer() { saveResume(); closeTimer(); toast("Paused — tap Resume
 function doneDataFor(early) {
   const st = settings();
   if (T.mode === "focus") {
-    let sec = 0, rounds = 0; const sp = T.spent || {};
-    T.steps.forEach((x, j) => { if (x.kind !== "focus") return; const got = !early && j === T.steps.length - 1 ? x.dur : Math.min(x.dur, Math.round((sp[j] || 0) / 1000)); sec += got; if (got >= x.dur * 0.9) rounds++; });
+    const { sec, rounds } = loggedTime(T.steps, T.spent, early, "focus");
     return { mode: "focus", date: todayStr(), title: (T.task || "").trim() || "Focus", focusMin: int(st.focusMin, 25), rounds, roundsPlanned: T.steps[0].of, durationSec: sec, notes: "", early: !!early };
   }
-  const med = T.steps.findIndex(x => x.kind === "med"), m = T.steps[med];
-  const sec = !early ? m.dur : Math.min(m.dur, Math.round(((T.spent || {})[med] || 0) / 1000));
+  const sec = loggedTime(T.steps, T.spent, early, "med").sec;
   return { mode: "meditate", date: todayStr(), title: "Meditation", guide: st.medGuide, durationSec: sec, feel: "", notes: "", early: !!early };
 }
 const FEELS = ["Restless", "Tired", "Steady", "Calm", "Clear"];
