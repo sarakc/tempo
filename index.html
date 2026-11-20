@@ -2013,13 +2013,13 @@ function createPlan(p, open, order) {
 let T = null, AC = null, wake = null;
 function ensureAudio() { try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === "suspended") AC.resume(); } catch {} }
 function beep(f, d, when, vol) {
-  if (!AC || S.muted) return;
+  if (!AC) return;
   try { const t0 = AC.currentTime + (when || 0), o = AC.createOscillator(), g = AC.createGain(); o.type = "sine"; o.frequency.value = f;
     g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol || 0.5, t0 + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
     o.connect(g); g.connect(AC.destination); o.start(t0); o.stop(t0 + d + 0.05); } catch {}
 }
 function bowl(vol, when) {
-  if (!AC || S.muted) return; vol = vol ?? 0.5;
+  if (!AC) return; vol = vol ?? 0.5;
   try { const t0 = AC.currentTime + (when || 0);
     [[196, 1, 7], [541, 0.45, 5], [1058, 0.22, 3.5], [1662, 0.1, 2.5]].forEach(([f, a, d]) => {
       const o = AC.createOscillator(), g = AC.createGain(); o.type = "sine"; o.frequency.value = f;
@@ -2027,7 +2027,7 @@ function bowl(vol, when) {
       o.connect(g); g.connect(AC.destination); o.start(t0); o.stop(t0 + d + 0.1); }); } catch {}
 }
 function chime(vol, when) {
-  if (!AC || S.muted) return; vol = vol ?? 0.4;
+  if (!AC) return; vol = vol ?? 0.4;
   try { const t0 = AC.currentTime + (when || 0);
     [[1046.5, 1, 0], [1568, 0.7, 0.14]].forEach(([f, a, off]) => {
       const o = AC.createOscillator(), g = AC.createGain(); o.type = "sine"; o.frequency.value = f; const t1 = t0 + off;
@@ -2035,7 +2035,7 @@ function chime(vol, when) {
       o.connect(g); g.connect(AC.destination); o.start(t1); o.stop(t1 + 2.3); }); } catch {}
 }
 function brightBell(vol, when) {
-  if (!AC || S.muted) return; vol = vol ?? 0.4;
+  if (!AC) return; vol = vol ?? 0.4;
   try { const t0 = AC.currentTime + (when || 0);
     [[880, 1, 3], [2420, 0.35, 1.4], [4380, 0.12, 0.7]].forEach(([f, a, d]) => {
       const o = AC.createOscillator(), g = AC.createGain(); o.type = "sine"; o.frequency.value = f;
@@ -2043,7 +2043,7 @@ function brightBell(vol, when) {
       o.connect(g); g.connect(AC.destination); o.start(t0); o.stop(t0 + d + 0.1); }); } catch {}
 }
 function woodBlock(vol, when) {
-  if (!AC || S.muted) return; vol = vol ?? 0.5;
+  if (!AC) return; vol = vol ?? 0.5;
   try { const t0 = AC.currentTime + (when || 0);
     [[950, "triangle", 1, 0.09], [1900, "sine", 0.4, 0.05]].forEach(([f, type, a, d]) => {
       const o = AC.createOscillator(), g = AC.createGain(); o.type = type; o.frequency.setValueAtTime(f * 1.04, t0); o.frequency.exponentialRampToValueAtTime(f, t0 + 0.02);
@@ -2051,7 +2051,7 @@ function woodBlock(vol, when) {
       o.connect(g); g.connect(AC.destination); o.start(t0); o.stop(t0 + d + 0.05); }); } catch {}
 }
 function softTone(vol, when) {
-  if (!AC || S.muted) return; vol = vol ?? 0.4;
+  if (!AC) return; vol = vol ?? 0.4;
   try { const t0 = AC.currentTime + (when || 0), o = AC.createOscillator(), g = AC.createGain(); o.type = "sine"; o.frequency.value = 523.25;
     g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol * 0.8, t0 + 0.15); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.4);
     o.connect(g); g.connect(AC.destination); o.start(t0); o.stop(t0 + 1.5); } catch {}
@@ -2095,9 +2095,10 @@ async function soundBuffer(id) {
 function warmSounds(ids) { ids.filter(x => String(x).startsWith("c:")).forEach(x => soundBuffer(x)); }
 const soundName = id => BUILTIN_MAP[id] ? BUILTIN_MAP[id][1] : (S.sounds.find(x => x.id === id)?.name || "Missing sound");
 const LIVE = new Set();
-function playSound(id, vol) {
+/* Mute is for workout, focus and meditation cues. The alarm and the sound previews pass always, so they play even when muted. */
+function playSound(id, vol, always) {
   vol = vol ?? 0.5;
-  if (!id || id === "silent" || S.muted) return;
+  if (!id || id === "silent" || (S.muted && !always)) return;
   if (BUILTIN_MAP[id]) { BUILTIN_MAP[id][2](vol); return; }
   if (!String(id).startsWith("c:")) return;
   const go = buf => { if (!buf) { chime(vol); return; } if (!AC) return;
@@ -2479,7 +2480,7 @@ async function addSoundFile(file) {
   const id = "c:" + uid(), name = file.name.replace(/\.[^.]+$/, "").slice(0, 40) || "My sound";
   try { await SDB.put({ id, name, type: file.type, blob: file, added: Date.now() }); } catch { toast("Couldn't save that sound on this device."); return; }
   SBUF[id] = buf; S.sounds = S.sounds.concat([{ id, name }]);
-  const k = sheetCtx && sheetCtx.sndKey; if (k) { setSetting(k, id); playSound(id); renderSoundPicker(); }
+  const k = sheetCtx && sheetCtx.sndKey; if (k) { setSetting(k, id); playSound(id, undefined, true); renderSoundPicker(); }
   toast(`Added “${name}”`);
 }
 async function deleteSound(id) {
@@ -2529,7 +2530,7 @@ function startRing() {
   $("#alarm").className = "open sun"; drawAlarm(); ensureAudio(); wakeOn();
   const s = settings(); clearInterval(ringT);
   const strike = () => { const el = (Date.now() - ringStart) / 1000, v = s.alarmGentle ? Math.min(0.7, 0.06 + el / 120 * 0.64) : 0.7;
-    playSound(s.sAlarm, v);
+    playSound(s.sAlarm, v, true);
     buzz([400, 200, 400]); };
   const every = id => id === "beeps4" || id === "double" || id === "beep" ? 1600 : String(id).startsWith("c:") ? Math.max(2500, ((SBUF[id] && SBUF[id].duration) || 2) * 1000 + 800) : 3200;
   const begin = () => { strike(); ringT = setInterval(strike, every(s.sAlarm)); };
@@ -2581,8 +2582,8 @@ function renderRest() {
 }
 function startRest() { ensureAudio(); stopRest(); RP = { endAt: Date.now() + settings().restRound * 1000, last: null }; RP.int = setInterval(() => {
   const sec = Math.ceil((RP.endAt - Date.now()) / 1000);
-  if (sec <= 3 && sec >= 1 && RP.last !== sec) { RP.last = sec; beep(660, 0.12); }
-  if (sec <= 0) { beep(880, 0.5); buzz([200, 100, 200]); stopRest(); toast("Rest's over — next round!"); return; }
+  if (sec <= 3 && sec >= 1 && RP.last !== sec) { RP.last = sec; if (!S.muted) beep(660, 0.12); }
+  if (sec <= 0) { if (!S.muted) beep(880, 0.5); buzz([200, 100, 200]); stopRest(); toast("Rest's over — next round!"); return; }
   const t = $("#restpill .t"); if (t) t.textContent = fmt(sec);
 }, 200); renderRest(); }
 function stopRest() { if (RP) clearInterval(RP.int); RP = null; renderRest(); }
@@ -2803,7 +2804,7 @@ document.addEventListener("click", e => {
     case "snd-mode": openSoundMode(t.dataset.m); break;
     case "snd-ev": openSoundPicker(t.dataset.k, sheetCtx && sheetCtx.sndMode ? sheetCtx.sndMode : null); break;
     case "snd-back": { const m = sheetCtx.sndBack; sheetCtx = { sndMode: m }; $("#sheet-b").innerHTML = `<div id="sndb"></div>`; renderSoundMode(); break; }
-    case "snd-pick": { ensureAudio(); const v = t.dataset.v; setSetting(sheetCtx.sndKey, v); playSound(v); renderSoundPicker(); break; }
+    case "snd-pick": { ensureAudio(); const v = t.dataset.v; setSetting(sheetCtx.sndKey, v); playSound(v, undefined, true); renderSoundPicker(); break; }
     case "snd-add": $("#snd-file").click(); break;
     case "sconf-no": { const n = $("#sconf"); if (n) n.remove(); break; }
     case "sconf-yes": { const fn = sheetCtx.sconf; delete sheetCtx.sconf; fn && fn(); break; }
