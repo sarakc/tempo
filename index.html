@@ -1564,10 +1564,10 @@ function viewTodayAny() {
   if (S.draft.mode === "timer") return viewToday();
   return `<div class="tday mode-workout">${todayHead(S.draft.title)}</div>` + viewBuilder(S.draft);
 }
-const bigNumRow = (k, val, label, cls) => `<div class="lenbig"><button class="rb" data-act="mstep" data-k="${k}" data-d="-1" aria-label="Less">${IC.minus}</button><div class="bignum ${cls || ""}">${val}</div><button class="rb" data-act="mstep" data-k="${k}" data-d="1" aria-label="More">${IC.plus}</button></div>${label ? `<div class="lenunit">${label}</div>` : ""}`;
+const bigNumRow = (k, val, label, cls) => `<div class="lenbig"><button class="rb" data-act="mstep" data-k="${k}" data-d="-1" aria-label="Less">${IC.minus}</button><div class="bignum ${cls || ""}">${esc(val)}</div><button class="rb" data-act="mstep" data-k="${k}" data-d="1" aria-label="More">${IC.plus}</button></div>${label ? `<div class="lenunit">${label}</div>` : ""}`;
 const mPills = (k, vals, cur, lab) => `<div class="pills">${vals.map(v => `<button data-act="mset" data-k="${k}" data-v="${esc(v)}" class="${String(cur) === String(v) ? "on" : ""}">${esc(lab ? lab(v) : v)}</button>`).join("")}</div>`;
 const cycRow = (label, k) => { const v = settings()[k]; return `<button class="orow" data-act="mcycle" data-k="${k}"><span class="grow">${label}</span><span class="ov">${esc(CLABEL[k](v))}</span><span class="chev">${IC.chev}</span></button>`; };
-const stepRow = (label, k, unit) => { const v = settings()[k]; return `<div class="orow"><span class="grow">${label}</span><div class="stepper"><button data-act="mstep" data-k="${k}" data-d="-1" aria-label="Less ${label}">−</button><span>${v}${unit ? " " + unit : ""}</span><button data-act="mstep" data-k="${k}" data-d="1" aria-label="More ${label}">+</button></div></div>`; };
+const stepRow = (label, k, unit) => { const v = settings()[k]; return `<div class="orow"><span class="grow">${label}</span><div class="stepper"><button data-act="mstep" data-k="${k}" data-d="-1" aria-label="Less ${label}">−</button><span>${esc(v)}${unit ? " " + unit : ""}</span><button data-act="mstep" data-k="${k}" data-d="1" aria-label="More ${label}">+</button></div></div>`; };
 const sndRow = (label, mode, k) => `<button class="orow" data-act="${mode ? "snd-mode" : "snd-ev"}" data-m="${mode || ""}" data-k="${k}"><span class="grow">${label}</span><span class="ov">${esc(soundName(settings()[k]))}${mode ? " …" : ""}</span><span class="chev">${IC.chev}</span></button>`;
 const togRow = (label, k) => `<label class="orow"><span class="grow">${label}</span><input type="checkbox" data-setting="${k}" ${settings()[k] ? "checked" : ""}></label>`;
 /* @testable */
@@ -1592,7 +1592,7 @@ function viewFocus() {
   const st = settings(), steps = focusSteps(st), tot = steps.reduce((a, x) => a + x.dur, 0);
   let h = `<div class="tday mode-focus">${todayHead()}${bigNumRow("focusMin", st.focusMin, "minutes of focus")}${mPills("focusMin", [15, 25, 45, 50], st.focusMin)}
     <div class="cyc" aria-hidden="true">${steps.map(x => `<i class="${x.kind === "break" ? "b" : ""}" style="flex:${x.dur} 1 0"></i>`).join("")}</div>
-    <div class="cycmeta"><span>${st.focusRounds} round${st.focusRounds > 1 ? "s" : ""} of focus</span><span>${hm(tot)} with breaks</span></div>
+    <div class="cycmeta"><span>${esc(st.focusRounds)} round${st.focusRounds > 1 ? "s" : ""} of focus</span><span>${hm(tot)} with breaks</span></div>
     <div class="card ocard">${stepRow("Break", "shortBreak", "min")}${stepRow("Long break", "longBreak", "min")}${cycRow("Long break comes", "longEvery")}${stepRow("Rounds", "focusRounds")}${togRow("Start breaks automatically", "autoBreaks")}${sndRow("Sounds", "focus", "sFocusStart")}</div>
     <label class="fld" style="margin-top:14px"><span>Working on (optional)</span><input class="in" data-stext="focusTask" data-k="focusTask" value="${esc(st.focusTask)}" placeholder="e.g. Write the project brief"></label>
     <button class="bigstart" data-act="start-focus" style="margin-top:6px">${IC.play}<span class="grow" style="text-align:left">Start focus</span><span class="num">${fmt(int(st.focusMin, 25) * 60)}</span></button></div>`;
@@ -1699,7 +1699,7 @@ function viewHistory() {
     const k = kindOf(w), open = !!S.open[w.id];
     let title, meta;
     if (k === "workout") { const exN = (w.blocks || []).reduce((a, b) => a + (b.exercises || []).length, 0); title = `${w.title || "Workout"} · ${w.mode === "timer" ? "timer" : "reps"}`; meta = w.durationSec ? fmt(w.durationSec) : `${exN} exercises`; }
-    else if (k === "focus") { title = `Focus${w.title && w.title !== "Focus" ? " · " + w.title : ""}`; meta = `${hm(w.durationSec || 0)}<br>${w.rounds || 0} round${w.rounds === 1 ? "" : "s"}`; }
+    else if (k === "focus") { title = `Focus${w.title && w.title !== "Focus" ? " · " + w.title : ""}`; meta = `${hm(w.durationSec || 0)}<br>${esc(w.rounds || 0)} round${w.rounds === 1 ? "" : "s"}`; }
     else { title = `Meditation · ${(CLABEL.medGuide(w.guide) || "Off") === "Off" ? "no guide" : CLABEL.medGuide(w.guide).split(" · ")[0].toLowerCase() + " breathing"}`; meta = `${hm(w.durationSec || 0)}${w.feel ? "<br>" + esc(w.feel) : ""}`; }
     h += `<div class="hrow"><button class="hhead" data-act="hx" data-id="${esc(w.id)}" aria-expanded="${open}"><span class="hdot" style="background:${KIND[k].dot}"></span><span class="grow"><b>${esc(fmtDate(w.date, true))}</b><span>${esc(title)}</span></span><span class="hmeta">${meta}</span></button>`;
     if (open) {
@@ -1707,11 +1707,11 @@ function viewHistory() {
       if (k === "workout") {
         if (w.mode === "timer" && w.warmup && segDur(w.warmup)) h += `<div class="hl"><span>${esc(w.warmup.name || "Warm-up")}</span><span>Warm-up · ${fmt(segDur(w.warmup))}</span></div>`;
         (w.blocks || []).forEach((b, bi) => {
-          h += `<h4>${esc(b.label || "Superset " + LET(bi))} · ${b.rounds} rounds${w.mode === "timer" && b.work ? ` · ${b.work}s work` : ""}</h4>`;
+          h += `<h4>${esc(b.label || "Superset " + LET(bi))} · ${esc(b.rounds)} rounds${w.mode === "timer" && b.work ? ` · ${esc(b.work)}s work` : ""}</h4>`;
           (b.exercises || []).forEach(e => { h += `<div class="hl"><span>${esc(e.name)}</span><span>${esc(fmtSets(e.sets, w.mode, unit)) || "—"}</span></div>`; });
         });
         if (w.mode === "timer" && w.cooldown && segDur(w.cooldown)) h += `<div class="hl"><span>${esc(w.cooldown.name || "Cool-down")}</span><span>Cool-down · ${fmt(segDur(w.cooldown))}</span></div>`;
-      } else if (k === "focus") h += `<div class="hl"><span>Rounds</span><span>${w.rounds || 0} of ${w.roundsPlanned || w.rounds || 0} × ${w.focusMin || 25} min</span></div>`;
+      } else if (k === "focus") h += `<div class="hl"><span>Rounds</span><span>${esc(w.rounds || 0)} of ${esc(w.roundsPlanned || w.rounds || 0)} × ${esc(w.focusMin || 25)} min</span></div>`;
       else h += `<div class="hl"><span>Breathing guide</span><span>${esc(CLABEL.medGuide(w.guide) || "Off")}</span></div>${w.feel ? `<div class="hl"><span>Felt</span><span>${esc(w.feel)}</span></div>` : ""}`;
       if (w.notes) h += `<h4>Notes</h4><div>${esc(w.notes)}</div>`;
       h += `<div class="acts" style="margin-top:12px">${k === "workout" ? `<button class="btn sm" data-act="repeat" data-id="${esc(w.id)}">Do again today</button><button class="btn sm" data-act="hist-save" data-id="${esc(w.id)}">Save as workout</button>` : `<button class="btn sm" data-act="repeat-other" data-id="${esc(w.id)}">Do again</button>`}<button class="btn sm danger" data-act="del-w" data-id="${esc(w.id)}">Delete</button></div></div>`;
