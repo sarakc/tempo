@@ -93,3 +93,21 @@ test("exLabel: saved exercises read as names, old strings and new objects alike"
   assert.equal(line, "Plank, Squat, Row, ");
   assert.doesNotMatch(line, /\[object/);
 });
+
+test("cue: trimmed and kept by normExercise and planExercise", () => {
+  assert.equal(T.normExercise({ name: "A", cue: "  Brace  " }).cue, "Brace");
+  assert.equal(T.planExercise({ name: "A", cue: " Brace " }).cue, "Brace");
+  assert.equal(T.normExercise(T.planExercise({ name: "A", cue: "Brace" })).cue, "Brace");
+});
+
+test("cue: empty or missing cues leave no cue key", () => {
+  assert.equal("cue" in T.planExercise({ name: "A", cue: "" }), false);
+  assert.equal("cue" in T.normExercise({ name: "A", cue: "   " }), false);
+  assert.equal("cue" in T.normExercise("Plank"), false);
+  assert.equal("cue" in T.planExercise({ name: "A", cue: 5 }), false);
+});
+
+test("cue: cut to 300 characters", () => {
+  assert.equal(T.normExercise({ name: "A", cue: "x".repeat(400) }).cue.length, 300);
+  assert.equal(T.planExercise({ name: "A", cue: "x".repeat(400) }).cue.length, 300);
+});

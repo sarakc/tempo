@@ -808,6 +808,7 @@ function normExercise(e) {
   const r = { id: o.id || uid(), name: o.name || "", sets: Array.isArray(o.sets) ? o.sets : [] };
   const w = parseInt(o.work, 10); if (isFinite(w) && w > 0) r.work = w;
   if (o.side === true) r.side = true;
+  const c = typeof o.cue === "string" ? cueOf(o.cue) : ""; if (c) r.cue = c;
   return r;
 }
 /* A saved workout's exercise as a name: old saves hold plain strings, newer ones { name, work?, side? } */
@@ -816,6 +817,7 @@ function planExercise(e) {
   const r = { name: String(e.name || "").trim() };
   const w = parseInt(e.work, 10); if (isFinite(w) && w > 0) r.work = w;
   if (e.side === true) r.side = true;
+  const c = typeof e.cue === "string" ? cueOf(e.cue) : ""; if (c) r.cue = c;
   return r;
 }
 const stepsSig = steps => steps.map(s => s.k[0] + s.dur + (s.k === "work" ? ":" + s.bid + "." + s.eid + (s.side ? ":s" + s.side : "") : "")).join(",");
@@ -854,8 +856,8 @@ function parseCSV(text) {
   if (f !== "" || row.length) endRow();
   return rows;
 }
-const CUE_MAX = 300;
-const cueOf = v => String(v ?? "").trim().slice(0, CUE_MAX);
+/* A cue: trimmed, at most 300 characters. A declaration, so normExercise can use it while the page is still loading. */
+function cueOf(v) { return String(v ?? "").trim().slice(0, 300); }
 /* Interval-timer CSV → workouts that play exactly as written: one pinned exercise per row, no fitting, no added rests */
 function routinesFromCSV(text, fileName) {
   const rows = parseCSV(text), head = (rows[0] || []).map(h => h.trim().toLowerCase().replace(/\s+/g, " "));
@@ -1954,7 +1956,7 @@ function doFill(kind) {
   const slots = []; o.blocks.forEach(b => b.exercises.forEach(e => { if (kind !== "empty" || !e.name.trim()) slots.push(e); }));
   const avoid = new Set(kind === "empty" ? o.blocks.flatMap(b => b.exercises.map(e => e.name.trim().toLowerCase()).filter(Boolean)) : []);
   const picks = pickRandom(pool, slots.length, avoid);
-  slots.forEach((e, i) => { if (picks[i] && picks[i] !== e.name) { e.name = picks[i]; e.sets = emptySets(e.sets.length || 1); delete e.work; delete e.side; } });
+  slots.forEach((e, i) => { if (picks[i] && picks[i] !== e.name) { e.name = picks[i]; e.sets = emptySets(e.sets.length || 1); delete e.work; delete e.side; delete e.cue; } });
   touch(o); closeSheet(); render();
   snapUndo(picks.length < slots.length ? `Shuffled — only found ${picks.length}, the rest are still open` : "Shuffled", pre);
 }
