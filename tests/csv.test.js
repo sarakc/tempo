@@ -7,6 +7,8 @@ const { loadTempo } = require("./load");
 const T = loadTempo();
 const DIR = path.join(__dirname, "..", "examples", "interval-timer-routines");
 const read = f => fs.readFileSync(path.join(DIR, f), "utf8");
+// examples/ is gitignored (personal routines), so these tests only run where the files exist
+const SKIP = !fs.existsSync(DIR) && "examples/interval-timer-routines not present (gitignored)";
 const plain = v => JSON.parse(JSON.stringify(v));
 // A plan as the timer sees it: ids on blocks and exercises, empty sets
 const toTimer = p => ({ ...p, blocks: p.blocks.map((b, i) => ({ ...b, id: "b" + i, exercises: b.exercises.map((e, j) => ({ ...e, id: "e" + j, sets: [] })) })) });
@@ -85,7 +87,7 @@ test("routinesFromCSV: long cues are cut to 300 characters", () => {
   assert.equal(r.plans[0].blocks[0].exercises[0].cue.length, 300);
 });
 
-for (const f of fs.readdirSync(DIR).filter(f => f.endsWith(".csv") && f !== "all-routines.csv").sort()) {
+for (const f of (SKIP ? [] : fs.readdirSync(DIR)).filter(f => f.endsWith(".csv") && f !== "all-routines.csv").sort()) {
   test(`example ${f}: one workout, one step per row, plays for exactly its length`, () => {
     const rows = T.parseCSV(read(f));
     const r = T.routinesFromCSV(read(f), f);
@@ -100,7 +102,7 @@ for (const f of fs.readdirSync(DIR).filter(f => f.endsWith(".csv") && f !== "all
   });
 }
 
-test("example all-routines.csv: ten workouts in file order", () => {
+test("example all-routines.csv: ten workouts in file order", { skip: SKIP }, () => {
   const r = T.routinesFromCSV(read("all-routines.csv"), "all-routines.csv");
   assert.equal(r.error, null);
   assert.equal(r.skipped, 0);
