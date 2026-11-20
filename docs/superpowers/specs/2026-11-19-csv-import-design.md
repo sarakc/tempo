@@ -37,13 +37,19 @@ workout-app's CSV import.
 - The first row is the header. Columns are matched by name, ignoring case and extra spaces.
   Other columns are ignored.
   - **Name** (required): `Interval`, `Exercise`, `Name` or `Step name`
-  - **Seconds** (required): `Duration (s)` or `Seconds`. Otherwise `Duration`, read as seconds or m:ss.
+  - **Seconds** (required): `Duration (s)` or `Seconds`. Otherwise `Duration`. Every one is read the same way
+    (added 2026-11-20): a plain number is seconds, rounded to whole seconds (`45`, `45.0`, `45,0`, and `1.5`
+    is 2 s); a unit may follow (`90s`, `90 sec`, `1.5m`, `2 min`); colons are m:ss or h:mm:ss (`1:30`,
+    `0:01:30`). Zero, under half a second and anything else is unreadable.
   - **Routine** (optional): splits the file into workouts. Without it, the whole file is one workout,
     named after the file (with a leading `NN-` number and the `.csv` dropped).
   - **Block** (optional): a new superset starts each time the value changes.
   - **Cue** (optional): `Cue` or `Notes`.
 - Standard CSV rules apply: quoted fields may hold commas, quotes (`""`) and line breaks. The file may
-  use CRLF or LF and may start with a UTF-8 BOM.
+  use CRLF or LF and may start with a UTF-8 BOM. It may use `;` instead of `,` (European Excel): whichever
+  appears more in the first line is the delimiter. Spaces before an opening quote are ignored.
+- A quote that never closes, or whose closing quote runs straight into more text, is read as a plain
+  character, so a stray quote can't swallow the rows after it.
 - A row with an empty name or unreadable seconds is skipped and counted. A file with no usable rows,
   or without the two required columns, imports nothing and says why.
 

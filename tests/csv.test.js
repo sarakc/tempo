@@ -127,3 +127,42 @@ test("parseCSV: rows of empty cells (Excel's cleared rows) are dropped, not coun
   const r = T.routinesFromCSV("Name,Seconds,Cue\nPlank,30,\n,,\n,,\n", "a.csv");
   assert.equal(r.skipped, 0);
 });
+
+test("parseCSV: a quote that never closes is read as a plain character, so no rows are swallowed", () => {
+  const csv = 'Name,Seconds,Cue\nPlank,30,"Brace hard\nSquat,30,x\nLunge,30,\nRow,30,y\nCurl,30,z\n';
+  assert.deepEqual(plain(T.parseCSV(csv)).length, 6);
+  const r = T.routinesFromCSV(csv, "a.csv");
+  assert.equal(r.skipped, 0);
+  assert.deepEqual(plain(r.plans[0].blocks[0].exercises.map(e => e.name)), ["Plank", "Squat", "Lunge", "Row", "Curl"]);
+  assert.equal(r.plans[0].blocks[0].exercises[0].cue, '"Brace hard');
+});
+
+test("parseCSV: an unclosed quote doesn't run on into a later quoted cell", () => {
+  const r = T.routinesFromCSV('Name,Seconds,Cue\nPlank,30,"Brace\nSquat,30,x\nLunge,30,"y"\nRow,30,"multi\nline"\n', "a.csv");
+  assert.deepEqual(plain(r.plans[0].blocks[0].exercises.map(e => [e.name, e.cue])), [["Plank", '"Brace'], ["Squat", "x"], ["Lunge", "y"], ["Row", "multi\nline"]]);
+});
+
+test("parseCSV: semicolon-delimited files (European Excel)", () => {
+  assert.deepEqual(plain(T.parseCSV('Interval;Duration (s);Cue\nPlank;30;"Brace; hard"\nRest;10;a, b\n')), [["Interval", "Duration (s)", "Cue"], ["Plank", "30", "Brace; hard"], ["Rest", "10", "a, b"]]);
+  const r = T.routinesFromCSV("Interval;Duration (s);Cue\r\nPlank;30;Brace, hard\r\nRest;45,0;\r\n", "a.csv");
+  assert.equal(r.error, null);
+  assert.deepEqual(plain(r.plans[0].blocks[0].exercises), [{ name: "Plank", work: 30, cue: "Brace, hard" }, { name: "Rest", work: 45 }]);
+});
+
+test("parseCSV: spaces before an opening quote", () => {
+  assert.deepEqual(plain(T.parseCSV('Name, Seconds, Cue\nPlank, "30", "a, b"\n')), [["Name", " Seconds", " Cue"], ["Plank", "30", "a, b"]]);
+  const r = T.routinesFromCSV('Name,Seconds,Cue\nPlank,30, "a, b"\n', "a.csv");
+  assert.equal(r.plans[0].blocks[0].exercises[0].cue, "a, b");
+});
+
+test("csvSecs: seconds as numbers, with units, m:ss and h:mm:ss", () => {
+  const cases = { "45": 45, " 45 ": 45, "45.0": 45, "45,0": 45, "1.5": 2, "0.4": null, "90s": 90, "90 sec": 90, "90 seconds": 90, "1.5m": 90, "2 min": 120, "2 Minutes": 120,
+    "1:30": 90, "1:75": 135, "0:01:30": 90, "1:00:00": 3600, "": null, "abc": null, "0": null, "-5": null, "0:00": null, "1:": null, "1.2.3": null, "90x": null, "1:30:": null };
+  for (const [v, want] of Object.entries(cases)) assert.equal(T.csvSecs(v), want, JSON.stringify(v));
+});
+
+test("routinesFromCSV: durations in other formats import instead of being skipped", () => {
+  const r = T.routinesFromCSV("Name,Duration\nA,0:01:30\nB,90s\nC,1.5\nD,45.0\n", "a.csv");
+  assert.equal(r.skipped, 0);
+  assert.deepEqual(plain(r.plans[0].blocks[0].exercises.map(e => e.work)), [90, 90, 2, 45]);
+});

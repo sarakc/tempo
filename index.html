@@ -845,24 +845,48 @@ function suggestWeight(sessions, step) {
   return String(Math.round((a.top + step) * 1000) / 1000);
 }
 /* ---------- CSV import ---------- */
-/* RFC 4180 rows: strips a BOM, takes CRLF or LF, quoted fields may hold commas, "" and line breaks. Blank lines are dropped. */
+/* RFC 4180 rows: strips a ﻿, takes CRLF, LF or CR, quoted fields may hold the delimiter, "" and line breaks. Blank lines are dropped.
+   The delimiter is "," or, when the first line has more of them, ";" (European Excel). A quote opens a field only at its start
+   (spaces before it are dropped); a quoted field that never closes, or whose closing quote runs into more text, wasn't
+   quoted after all: its opening quote is read as a plain character, so one stray quote can't swallow the rows after it. */
 function parseCSV(text) {
-  const s = String(text ?? "").replace(/^﻿/, ""), rows = [];
-  let row = [], f = "", q = false, i = 0;
+  const s = String(text ?? "").replace(/^﻿/, ""), d = csvDelim(s), rows = [], lit = new Set();
+  let row = [], f = "", q = false, i = 0, at = null;
   const endRow = () => { row.push(f); f = ""; if (row.some(x => x.trim())) rows.push(row); row = []; }; // rows of blank cells (Excel's cleared rows) are blank lines too
-  while (i < s.length) {
+  const unquote = () => { i = at.i; f = at.f; lit.add(i); q = false; }; // back to the opening quote, now a plain character
+  for (;;) {
+    if (i >= s.length) { if (q) { unquote(); continue; } break; }
     const c = s[i];
     if (q) {
-      if (c === '"') { if (s[i + 1] === '"') { f += '"'; i++; } else q = false; }
+      if (c === '"') { const n = s[i + 1];
+        if (n === '"') { f += '"'; i++; }
+        else if (n === undefined || n === d || n === "\n" || n === "\r" || n === " " || n === "\t") q = false;
+        else { unquote(); continue; } }
       else f += c;
-    } else if (c === '"' && f === "") q = true; // a quote opens a field only at its start; 6" mid-cell is literal
-    else if (c === ",") { row.push(f); f = ""; }
+    } else if (c === '"' && !f.trim() && !lit.has(i)) { at = { i, f }; f = ""; q = true; } // 6" mid-cell is literal
+    else if (c === d) { row.push(f); f = ""; }
     else if (c === "\n" || c === "\r") { if (c === "\r" && s[i + 1] === "\n") i++; endRow(); }
     else f += c;
     i++;
   }
   if (f !== "" || row.length) endRow();
   return rows;
+}
+function csvDelim(s) {
+  let q = false, c = 0, sc = 0;
+  for (const ch of s) { if (ch === '"') q = !q; else if (q) continue; else if (ch === "\n" || ch === "\r") { if (c || sc) break; } else if (ch === ",") c++; else if (ch === ";") sc++; }
+  return sc > c ? ";" : ",";
+}
+/* A CSV duration in seconds. Plain numbers are seconds, rounded to whole ones: 45, 45.0, 45,0 (decimal comma) and 1.5 (→ 2).
+   A unit may follow: 90s, 90 sec, 90 seconds; 1.5m, 2 min, 2 minutes. Colons are m:ss or h:mm:ss (1:30, 0:01:30), extra seconds or
+   minutes carrying over as in the time editor. Zero, under half a second, negatives and anything else are null. */
+function csvSecs(v) {
+  const t = String(v ?? "").trim().toLowerCase();
+  let m = t.match(/^(\d+):(\d+)(?::(\d+))?$/), sec;
+  if (m) sec = m[3] != null ? +m[1] * 3600 + +m[2] * 60 + +m[3] : +m[1] * 60 + +m[2];
+  else if ((m = t.match(/^(\d+(?:[.,]\d+)?)\s*(s|secs?|seconds?|m|mins?|minutes?)?$/))) sec = parseFloat(m[1].replace(",", ".")) * (m[2] && m[2][0] === "m" ? 60 : 1);
+  else return null;
+  sec = Math.round(sec); return sec > 0 ? sec : null;
 }
 /* A cue: trimmed, at most 300 characters. A declaration, so normExercise can use it while the page is still loading. */
 function cueOf(v) { return String(v ?? "").trim().slice(0, 300); }
@@ -876,7 +900,7 @@ function routinesFromCSV(text, fileName) {
   const fallback = String(fileName || "").replace(/\.csv$/i, "").replace(/^\d+[-_ .]+/, "").trim() || "Imported workout";
   const byName = new Map(); let skipped = 0;
   rows.slice(1).forEach(row => {
-    const name = String(row[cName] ?? "").trim(), secs = parseSecs(row[cSec]);
+    const name = String(row[cName] ?? "").trim(), secs = csvSecs(row[cSec]);
     if (!name || !secs) { skipped++; return; }
     const rname = (cRoutine >= 0 && String(row[cRoutine] ?? "").trim()) || fallback;
     let r = byName.get(rname);

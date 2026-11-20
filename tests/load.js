@@ -2,7 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-const EXPORTS = ["buildSteps", "applyFit", "totalAll", "counts", "blockTotal", "blockFixed", "stepsSig", "BAL", "restRatios", "exWork", "exUnits", "normExercise", "planExercise", "SIDE_SWITCH", "backCalcWork", "parseSecs", "moveExercise", "moveBlock", "applyAdj", "suggestWeight", "exLabel", "parseCSV", "routinesFromCSV", "catchUp", "loggedTime", "focusSteps", "medSteps", "draftDay", "dayOf", "remoteDocs", "mergeDocs", "stampNow", "noteStamp"];
+const EXPORTS = ["buildSteps", "applyFit", "totalAll", "counts", "blockTotal", "blockFixed", "stepsSig", "BAL", "restRatios", "exWork", "exUnits", "normExercise", "planExercise", "SIDE_SWITCH", "backCalcWork", "parseSecs", "moveExercise", "moveBlock", "applyAdj", "suggestWeight", "exLabel", "parseCSV", "routinesFromCSV", "catchUp", "loggedTime", "focusSteps", "medSteps", "draftDay", "dayOf", "remoteDocs", "mergeDocs", "stampNow", "noteStamp", "csvSecs"];
 
 const html = () => fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 
