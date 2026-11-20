@@ -126,6 +126,8 @@ body.dragging,body.dragging *{cursor:grabbing !important;user-select:none;-webki
 .sidetag{flex:none;font-size:11.5px;color:var(--muted);border:1px solid var(--line,var(--bg2));border-radius:999px;padding:1px 7px}
 .exn .name.empty{color:var(--muted);text-decoration:underline;text-underline-offset:3px}
 .hint{font-size:12px;color:var(--muted);margin:0 0 6px 22px}
+.excue{font-size:12.5px;line-height:1.35;color:var(--muted);margin:0 0 6px 22px;overflow-wrap:anywhere}
+.te-cue{margin:14px 0 4px;text-align:left}
 .sets{display:grid;gap:5px;align-items:center;margin-left:22px}
 .sets .lab{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
 .sets .sh{font-size:10.5px;color:var(--muted);text-align:center;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
@@ -464,6 +466,7 @@ button.orow:active{transform:none;opacity:.6}
 .tlab3{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.7;margin-bottom:3px}
 .tname2{font-family:"Space Grotesk",system-ui,sans-serif;font-weight:700;font-size:clamp(30px,9vw,46px);line-height:1.05}
 .tmeta2{font-size:15px;opacity:.8;margin-top:8px}
+.tcue{font-size:17px;line-height:1.4;margin-top:10px;max-width:32em;overflow-wrap:anywhere}
 .tmain .tws{justify-content:flex-start;margin-top:14px}
 .tmain .taphint{margin-top:18px;opacity:.55;font-size:12px}
 .tnext{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:0 18px;padding:14px 0;border-top:1px solid color-mix(in srgb,currentColor 16%,transparent);font-size:14.5px}
@@ -1431,7 +1434,7 @@ function viewBuilder(o, opt) {
       h += `<div class="ex"><div class="exn"><span class="grip" data-drag="ex" data-b="${bi}" data-e="${ei}" aria-hidden="true">⋮⋮</span><span class="order">${L}${ei + 1}</span>
         <button class="name ${ex.name ? "" : "empty"}" data-act="pick" data-b="${bi}" data-e="${ei}">${ex.name ? esc(ex.name) : "+ Choose exercise"}</button>
         ${ex.side ? `<span class="sidetag">each side</span>` : ""}${timer && ex.name.trim() ? exChip(o, bi, ei) : ""}
-        <button class="icon" data-act="rm-ex" data-b="${bi}" data-e="${ei}" aria-label="Remove exercise">✕</button></div>`;
+        <button class="icon" data-act="rm-ex" data-b="${bi}" data-e="${ei}" aria-label="Remove exercise">✕</button></div>${ex.cue ? `<div class="excue">${esc(ex.cue)}</div>` : ""}`;
       if (showGrid) {
         if (last) h += `<div class="hint">Last time (${esc(fmtDate(last.date))}): ${esc(fmtSets(last.sets, last.mode, unit)) || "nothing logged"}${esc(tryFor(ex.name))}</div>`;
         h += `<div class="sets" style="grid-template-columns:38px repeat(${R},minmax(0,1fr))"><div></div>`;
@@ -1809,7 +1812,7 @@ function pickName(n) {
   const o = cur(); let [b, x] = sheetCtx.pick;
   if (b >= o.blocks.length) { const lb = o.blocks[o.blocks.length - 1]; o.blocks.push(mkBlock([], lb?.rounds, lb)); b = o.blocks.length - 1; x = 0; }
   const B = o.blocks[b];
-  if (x >= B.exercises.length) { B.exercises.push({ ...normExercise(n), sets: emptySets(B.rounds) }); x = B.exercises.length - 1; } else B.exercises[x].name = n;
+  if (x >= B.exercises.length) { B.exercises.push({ ...normExercise(n), sets: emptySets(B.rounds) }); x = B.exercises.length - 1; } else { if (B.exercises[x].name !== n) delete B.exercises[x].cue; B.exercises[x].name = n; } // a different exercise: its cue no longer applies
   touch(o); render();
   if (sheetCtx.replace) { closeSheet(); return; }
   sheetCtx.pick = nextEmpty(o, b, x) || [b, B.exercises.length];
@@ -1897,7 +1900,8 @@ function renderTimeEditor(open) {
     <input class="in te-in" data-te-in autocomplete="off" autocapitalize="off" enterkeyhint="done" placeholder="Type 45 or 1:30" aria-label="Time, in seconds or minutes:seconds">
     <div class="te-prev" id="te-prev">${tePreview(t)}</div>
     ${I.pin ? `<button class="btn big" data-act="te-auto">Back to auto</button>` : ""}`;
-  if (t.t === "ex") h += `<label class="tog"><input type="checkbox" data-act="te-side" ${I.e.side ? "checked" : ""}> Each side</label>
+  if (t.t === "ex") h += `<label class="fld te-cue"><span>Cue</span><textarea class="in" rows="2" data-te-cue maxlength="300" placeholder="Shown on the timer during this exercise">${esc(I.e.cue || "")}</textarea></label>
+    <label class="tog"><input type="checkbox" data-act="te-side" ${I.e.side ? "checked" : ""}> Each side</label>
     <div class="acts"><button class="btn" data-act="te-up" ${t.b === 0 && t.e === 0 ? "disabled" : ""}>Move up</button><button class="btn" data-act="te-down" ${t.b === o.blocks.length - 1 && t.e === o.blocks[t.b].exercises.length - 1 ? "disabled" : ""}>Move down</button><button class="btn danger" data-act="te-rm">Remove</button></div>`;
   h += `</div>`;
   if (open || !sheetCtx?.te) openSheet(I.title, h, { te: true });
@@ -2415,7 +2419,7 @@ function drawTimer(full) {
       const sub = !T.paused && !isWork && p.sub && st.sub !== "switch" ? p.sub : "";
       body = `<div class="tlab2">${T.paused ? "Paused" : esc(p.label)}${sub ? ` <span>· ${esc(sub)}</span>` : ""}</div>
         <div class="tnumrow"><button class="tadj" data-act="t-minus" aria-label="Take 15 seconds off">−15</button><div class="tbig${rem >= 60 ? " mm" : ""}" id="tnum">${numTxt}</div><button class="tadj" data-act="t-plus" aria-label="Add 15 seconds">+15</button></div>
-        ${segMain || (tgt ? `${isWork ? "" : `<div class="tlab3">Up next</div>`}<div class="tname2">${esc(stName(tgt))}</div><div class="tmeta2">Round ${tgt.r + 1} of ${blk.rounds} · Superset ${LET[tgt.b]}</div>` : `<div class="tname2">Last stretch!</div>`)}
+        ${segMain || (tgt ? `${isWork ? "" : `<div class="tlab3">Up next</div>`}<div class="tname2">${esc(stName(tgt))}</div>${isWork && blk.exercises[tgt.e]?.cue ? `<div class="tcue">${esc(blk.exercises[tgt.e].cue)}</div>` : ""}<div class="tmeta2">Round ${tgt.r + 1} of ${blk.rounds} · Superset ${LET[tgt.b]}</div>` : `<div class="tname2">Last stretch!</div>`)}
         ${logs ? `<div class="tws">${logs}</div>` : ""}
         <div class="taphint">${T.paused ? "Tap anywhere to resume" : "Tap anywhere to pause"}</div>`;
       body = `<div class="tmain" data-act="t-pause">${body}</div><div class="tnext"><span>Next</span><b>${esc(nextName || "Finish")}</b></div>`;
@@ -2831,6 +2835,15 @@ document.addEventListener("input", e => {
   if (t.dataset.set !== undefined) dropUndo();
   if (t.id === "pq") { S.pickQ = t.value; renderPicker(); return; }
   if ("teIn" in t.dataset) { const p = $("#te-prev"); if (p && S.te) p.innerHTML = tePreview(S.te, parseSecs(t.value)); return; }
+  if ("teCue" in t.dataset) { // save as you type; the editor line under the exercise follows without a re-render (which would drop focus)
+    const ex = S.te && o.blocks[S.te.b]?.exercises[S.te.e]; if (!ex) return;
+    const c = cueOf(t.value); if (c) ex.cue = c; else delete ex.cue; touch(o);
+    const row = $(`#tc${S.te.b}-${S.te.e}`)?.closest(".ex"); if (!row) return;
+    let n = row.querySelector(".excue");
+    if (!c) { if (n) n.remove(); return; }
+    if (!n) { n = document.createElement("div"); n.className = "excue"; row.querySelector(".exn").after(n); }
+    n.textContent = c; return;
+  }
   if (t.dataset.stext) { S.settings = Object.assign({}, S.settings, { [t.dataset.stext]: t.value }); saveSettingsSoon(); return; }
   if ("ftask" in t.dataset) { if (T) T.task = t.value; S.settings = Object.assign({}, S.settings, { focusTask: t.value }); saveSettingsSoon(); return; }
   if ("dnote" in t.dataset) { if (T && T.doneData) T.doneData.notes = t.value; return; }
