@@ -14,7 +14,8 @@ self.addEventListener("fetch", e => {
   // (Pages can 404 for a moment during a deploy); a redirect passes through untouched.
   if (req.mode === "navigate") {
     e.respondWith(fetch(req).then(r => {
-      if (keep(r)) { const c = r.clone(); caches.open(CACHE).then(x => x.put("./index.html", c)); return r; }
+      // only the app itself is saved as the app: opening README.txt or tests/… under /tempo/ must not replace it
+      if (keep(r) && /\/(index\.html)?$/.test(new URL(req.url).pathname)) { const c = r.clone(); caches.open(CACHE).then(x => x.put("./index.html", c)); return r; }
       return r.status >= 400 ? caches.match("./index.html").then(hit => hit || r) : r;
     }, () => caches.match("./index.html")));
     return;
