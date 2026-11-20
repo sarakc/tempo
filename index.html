@@ -1010,6 +1010,7 @@ function localDB() {
     pruneTombstones(before) { for (const k in meta) if (meta[k].del && meta[k].t < before) delete meta[k]; save(); }
   });
 }
+/* @testable */
 /* Merge two record sets {key: {t, d} | {t, del}}. Newest change wins; on a tie the remote copy wins. */
 function mergeDocs(local, remote) {
   const out = {}, toLocal = {}; let remoteDirty = false;
@@ -1023,6 +1024,15 @@ function mergeDocs(local, remote) {
   }
   return { out, toLocal, remoteDirty };
 }
+/* The records in a sync file's text. Anything but a whole Tempo file throws: merging a failed or cut-off read
+   as an empty file would overwrite the gist with only this device's records and lose deletions made elsewhere. */
+function remoteDocs(txt) {
+  let o; try { o = JSON.parse(txt); } catch { o = null; }
+  const docs = o && typeof o === "object" ? o.docs : null;
+  if (!docs || typeof docs !== "object" || Array.isArray(docs)) { const e = new Error("Couldn't read the sync file. Nothing was changed; try again."); e.code = "badread"; throw e; }
+  return docs;
+}
+/* @end-testable */
 
 /* ---------- sync through a private GitHub Gist ---------- */
 const GIST_FILE = "tempo-sync.json", TOMBSTONE_DAYS = 180;
@@ -1071,8 +1081,11 @@ const Sync = {
       const f = g.files && g.files[GIST_FILE];
       let remote = {};
       if (f) { let txt = f.content;
-        if (f.truncated) { const r = await fetch(f.raw_url, { cache: "no-store" }); txt = await r.text(); }
-        try { remote = (JSON.parse(txt || "{}").docs) || {}; } catch { remote = {}; } }
+        if (f.truncated) { // GitHub cuts files over 1 MB from the API reply; the whole file is at raw_url
+          let r; try { r = await fetch(f.raw_url, { cache: "no-store" }); } catch { const e = new Error("Can't reach GitHub"); e.code = "offline"; throw e; }
+          if (!r.ok) { const e = new Error("GitHub error " + r.status); e.code = r.status; throw e; }
+          txt = await r.text(); }
+        remote = remoteDocs(txt); } // throws on a bad read, so nothing below runs and the gist is left alone
       const { out, toLocal, remoteDirty } = mergeDocs(S.db.syncSnapshot(), remote);
       if (Object.keys(toLocal).length) S.db.applyRemote(toLocal);
       const cut = Date.now() - TOMBSTONE_DAYS * 864e5;
