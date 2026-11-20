@@ -2034,7 +2034,7 @@ function createPlan(p, open, order) {
 }
 
 /* ---------- timer overlay ---------- */
-let T = null, AC = null, wake = null;
+let T = null, AC = null, wake = null, wakeReq = null, wakeWant = false;
 // resumes anything but "running": iOS also reports "interrupted" after a call or a lock
 function ensureAudio() { try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state !== "running") Promise.resolve(AC.resume()).catch(() => {}); } catch {} }
 const audioOK = () => !!AC && AC.state === "running";
@@ -2138,8 +2138,18 @@ const speaking = () => { try { return !!window.speechSynthesis && window.speechS
 function say(text) { if (!voiceOn()) return; try { const ss = window.speechSynthesis; ss.cancel(); const u = new SpeechSynthesisUtterance(text); u.rate = 1.05; ss.speak(u); } catch {} }
 const sayIfFree = text => { if (voiceOn() && !speaking()) { say(text); return true; } return false; };
 const buzz = p => { try { navigator.vibrate && navigator.vibrate(p); } catch {} };
-async function wakeOn() { try { wake = await navigator.wakeLock.request("screen"); } catch { wake = null; } }
-function wakeOff() { try { wake && wake.release(); } catch {} wake = null; }
+/* One screen wake lock, held while a timer runs or an alarm is armed. The browser drops it when the page is hidden
+   (visibilitychange asks again); a second wakeOn while one is held or being requested does nothing, so none leak. */
+function wakeOn() {
+  wakeWant = true; if (wake || wakeReq || !navigator.wakeLock) return;
+  wakeReq = navigator.wakeLock.request("screen").then(l => { wakeReq = null;
+    if (!wakeWant) { l.release().catch(() => {}); return; }
+    wake = l; l.addEventListener("release", () => { if (wake === l) wake = null; }); }, () => { wakeReq = null; });
+}
+function wakeOff() {
+  if (AL || (T && !T.done)) return; // an armed alarm can only ring if the phone stays awake
+  wakeWant = false; const l = wake; wake = null; if (l) l.release().catch(() => {});
+}
 const nextWorkIdx = i => { for (let j = i + 1; j < T.steps.length; j++) if (T.steps[j].k === "work") return j; return -1; };
 const prevWorkIdx = i => { for (let j = i - 1; j >= 0; j--) if (T.steps[j].k === "work") return j; return -1; };
 const exName = st => S.draft.blocks[st.b]?.exercises[st.e]?.name || "";
@@ -2560,7 +2570,7 @@ function initAlarm() {
 function armAlarm() { ensureAudio(); warmSounds([settings().sAlarm]); AL = { at: nextAt(settings().alarmTime) }; lsSet("tempo.alarm", AL); wakeOn(); openBedside(); }
 function rearmIfNeeded() { if (AL && !AL.ringing && !AL.snoozed) { AL.at = nextAt(settings().alarmTime); lsSet("tempo.alarm", AL); } }
 function openBedside() { $("#alarm").className = "open night"; drawAlarm(); wakeOn(); }
-function closeAlarmUI() { $("#alarm").className = ""; $("#alarm").innerHTML = ""; if (!T) wakeOff(); }
+function closeAlarmUI() { $("#alarm").className = ""; $("#alarm").innerHTML = ""; wakeOff(); } // "Back" keeps the lock while the alarm is armed
 function alarmOff() { stopRing(); AL = null; lsSet("tempo.alarm", null); closeAlarmUI(); render(); toast("Alarm off"); }
 function alarmTick() {
   if (!AL) return;
@@ -2609,7 +2619,7 @@ function viewAlarm() {
     <div class="exact"><label for="atime">Exact time</label><input id="atime" class="in" type="time" data-atime value="${esc(st.alarmTime)}"></div>
     <div class="lenunit" style="margin-top:10px">${AL ? `Alarm on · rings in <span id="al-until">${untilTxt(AL.at)}</span>` : `${untilTxt(nextAt(st.alarmTime))} from now`}</div>
     <div class="card ocard">${sndRow("Sound", null, "sAlarm")}${togRow("Gentle wake (fades in over 2 min)", "alarmGentle")}${cycRow("Snooze", "alarmSnooze")}</div>
-    <div class="mnote">Keep ${APP_NAME} open on screen with your phone on the charger. A web app can only ring while it's open; it can't wake a locked phone.</div>
+    <div class="mnote">Keep ${APP_NAME} open on screen with your phone on the charger. A web app can only ring while it's open; it can't wake a locked phone.${"wakeLock" in navigator ? "" : " This browser can't keep the screen on by itself, so turn off auto-lock while the alarm is set."}</div>
     ${AL ? `<button class="bigstart" data-act="al-open">${IC.clock}<span class="grow" style="text-align:left">Alarm on · bedside screen</span><span class="num">${fmt12(atToHHMM(AL.at)).t}</span></button><div class="sublinks"><button class="link" data-act="al-off">Turn off alarm</button></div>`
          : `<button class="bigstart" data-act="al-arm">${IC.play}<span class="grow" style="text-align:left">Set alarm</span><span class="num">${c.t} ${c.ap}</span></button>`}
   </div>`;
@@ -2958,7 +2968,7 @@ function updTimerUI() {
 }
 document.addEventListener("keydown", e => { if (e.key === "Escape" && $("#sheet").classList.contains("open")) closeSheet(); if (e.key === "Enter" && e.target.dataset && "teIn" in e.target.dataset) e.target.blur(); if (e.key === " " && T && !T.done && !T.ask && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) { e.preventDefault(); togglePause(); } });
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") Sync.soon(300); else if (Sync.pending) Sync.now();
-  if (document.visibilityState === "visible" && AL && $("#alarm").classList.contains("open")) wakeOn();
+  if (document.visibilityState === "visible" && AL) wakeOn();
   if (!T || T.done) return; if (document.visibilityState === "visible") { wakeOn(); tick(); } else saveResume(); });
 
 ["touchend", "click"].forEach(ev => $("#alarm").addEventListener(ev, ensureAudio)); // any tap here unlocks sound, which a reload leaves locked
