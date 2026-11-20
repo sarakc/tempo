@@ -120,3 +120,7 @@ test("draftDay: the day you did it, not the day the draft was made", () => {
   assert.equal(T.draftDay({ date: "", dateSet: true }), today);
   assert.equal(T.dayOf(new Date(2026, 2, 9, 23, 59).getTime()), "2026-03-09");
 });
+
+test("LET: superset letters run A to Z, then AA, AB, …", () => {
+  assert.deepEqual([0, 1, 9, 10, 25, 26, 27, 51, 52, 701, 702].map(i => T.LET(i)), ["A", "B", "J", "K", "Z", "AA", "AB", "AZ", "BA", "ZZ", "AAA"]);
+});

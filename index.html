@@ -503,7 +503,8 @@ const $ = s => document.querySelector(s);
 /* @testable */
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const uid = () => Math.random().toString(36).slice(2, 10);
-const LET = "ABCDEFGHIJ";
+/* Superset letters: A to Z, then AA, AB, … (as spreadsheet columns) */
+const LET = i => { let s = ""; for (i = Math.floor(i); i >= 0; i = Math.floor(i / 26) - 1) s = String.fromCharCode(65 + i % 26) + s; return s; };
 const pad = n => String(n).padStart(2, "0");
 const dayOf = t => { const d = new Date(t); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
 const todayStr = () => dayOf(Date.now());
@@ -1222,8 +1223,8 @@ function fitFixes(o) {
   const pins = [];
   o.blocks.forEach((b, bi) => namedEx(b).forEach(e => { const p = exPin(e); if (p != null) pins.push({ bi, e, ei: b.exercises.indexOf(e), p }); }));
   pins.sort((x, y) => y.p - x.p).slice(0, 2).forEach(x => { btns += `<button class="btn sm" data-act="unpin" data-b="${x.bi}" data-e="${x.ei}">Set ${esc(x.e.name.trim())} back to auto</button>`; });
-  o.blocks.forEach((b, bi) => { if (int(b.lockTotal, 0) > 0 && namedEx(b).length) btns += `<button class="btn sm" data-act="unpin-blk" data-b="${bi}">Set Superset ${LET[bi]} back to auto</button>`; });
-  const msg = stuck.length ? stuck.map(b => `Superset ${LET[o.blocks.indexOf(b)]} needs at least ${fmt(blockTotal(b, o))} for its exercises.`).join(" ")
+  o.blocks.forEach((b, bi) => { if (int(b.lockTotal, 0) > 0 && namedEx(b).length) btns += `<button class="btn sm" data-act="unpin-blk" data-b="${bi}">Set Superset ${LET(bi)} back to auto</button>`; });
+  const msg = stuck.length ? stuck.map(b => `Superset ${LET(o.blocks.indexOf(b))} needs at least ${fmt(blockTotal(b, o))} for its exercises.`).join(" ")
     : `Too much to fit in ${num(o.targetMin)} min — the shortest version is ${fmt(tot)}.`;
   return `<div class="warn" style="margin-top:6px">${msg}</div><div class="acts">${btns}</div>`;
 }
@@ -1460,7 +1461,7 @@ function viewBuilder(o, opt) {
   h += `<div class="fillrow"><button class="btn sm" data-act="fill" style="display:flex;align-items:center;gap:6px">${IC.shuffle}Fill for me</button><span class="small muted">Random picks from your library</span></div>`;
   if (timer) h += segCard(o, "warmup");
   o.blocks.forEach((b, bi) => {
-    const R = b.rounds, L = LET[bi] || bi + 1;
+    const R = b.rounds, L = LET(bi);
     h += `<div class="card" data-sb="${bi}">
       <div class="bh${timer && namedEx(b).length ? " tm" : ""}"><div class="badge" data-drag="blk" data-b="${bi}">${L}</div><div class="bl">Superset ${L}</div>
         <div class="stepper"><button data-act="rounds" data-b="${bi}" data-d="-1" aria-label="Fewer rounds">−</button><span>${R} round${R > 1 ? "s" : ""}</span><button data-act="rounds" data-b="${bi}" data-d="1" aria-label="More rounds">+</button></div>
@@ -1535,7 +1536,7 @@ function viewToday() {
     <div class="card excard"><div class="exhead"><span class="small muted grow" style="font-weight:600">${nEx ? `${nEx} exercise${nEx > 1 ? "s" : ""} · ${rs.length === 1 ? rs[0] + " round" + (rs[0] > 1 ? "s" : "") + " each" : "mixed rounds"}` : "No exercises yet"}</span>
       ${nEx ? `<button class="tbtn" data-act="shuffle">${IC.shuffle}Shuffle</button><button class="tbtn" data-act="compose" style="text-decoration:underline;text-underline-offset:3px">Edit</button>`
             : `<button class="tbtn" data-act="fill">${IC.shuffle}Fill for me</button><button class="tbtn" data-act="compose" style="text-decoration:underline;text-underline-offset:3px">Choose</button>`}</div>`;
-  named.forEach(x => { h += `<button class="exline" data-act="compose"><b>${LET[x.bi] || x.bi + 1}</b><span>${x.names.map(esc).join(" · ")}</span></button>`; });
+  named.forEach(x => { h += `<button class="exline" data-act="compose"><b>${LET(x.bi)}</b><span>${x.names.map(esc).join(" · ")}</span></button>`; });
   h += `</div>`;
   let sub = [];
   if (!tot) h += `<button class="bigstart" disabled>${IC.play}<span class="grow" style="text-align:left">Add exercises to start</span></button>`;
@@ -1638,7 +1639,7 @@ function planCard(t) {
   const blocks = t.blocks || [], timer = t.mode === "timer";
   const shape = blocks.map(b => (b.exercises || []).length).join(" + ");
   const len = timer ? (t.autoFit ? `${num(t.targetMin)} min` : fmt(totalAll(objFromPlan(t)))) : "";
-  const exs = blocks.map((b, i) => `<b>${LET[i]}</b> ` + esc((b.exercises || []).map(exLabel).join(", "))).join(" &nbsp;·&nbsp; ");
+  const exs = blocks.map((b, i) => `<b>${LET(i)}</b> ` + esc((b.exercises || []).map(exLabel).join(", "))).join(" &nbsp;·&nbsp; ");
   let lens = "", acts;
   if (timer) {
     const { opts, def } = planLens(t), ch = S.cardLen[t.id] ?? def;
@@ -1706,7 +1707,7 @@ function viewHistory() {
       if (k === "workout") {
         if (w.mode === "timer" && w.warmup && segDur(w.warmup)) h += `<div class="hl"><span>${esc(w.warmup.name || "Warm-up")}</span><span>Warm-up · ${fmt(segDur(w.warmup))}</span></div>`;
         (w.blocks || []).forEach((b, bi) => {
-          h += `<h4>${esc(b.label || "Superset " + LET[bi])} · ${b.rounds} rounds${w.mode === "timer" && b.work ? ` · ${b.work}s work` : ""}</h4>`;
+          h += `<h4>${esc(b.label || "Superset " + LET(bi))} · ${b.rounds} rounds${w.mode === "timer" && b.work ? ` · ${b.work}s work` : ""}</h4>`;
           (b.exercises || []).forEach(e => { h += `<div class="hl"><span>${esc(e.name)}</span><span>${esc(fmtSets(e.sets, w.mode, unit)) || "—"}</span></div>`; });
         });
         if (w.mode === "timer" && w.cooldown && segDur(w.cooldown)) h += `<div class="hl"><span>${esc(w.cooldown.name || "Cool-down")}</span><span>Cool-down · ${fmt(segDur(w.cooldown))}</span></div>`;
@@ -1829,7 +1830,7 @@ function openPicker(bi, ei) {
   renderPicker(); setTimeout(() => { const q = $("#pq"); if (q && window.matchMedia("(hover:hover)").matches) q.focus(); }, 50);
 }
 function renderTarget() {
-  const o = cur(), [b, e] = sheetCtx.pick, L = LET[b] || b + 1;
+  const o = cur(), [b, e] = sheetCtx.pick, L = LET(b);
   const isNew = b >= o.blocks.length, append = !isNew && e >= o.blocks[b].exercises.length;
   const lab = isNew ? `Starting Superset ${L}` : sheetCtx.replace ? `Swap ${L}${e + 1}` : append ? `Adding ${L}${e + 1} to Superset ${L}` : `Choosing ${L}${e + 1}`;
   const canNew = !sheetCtx.replace && !isNew && o.blocks[b].exercises.some(x => x.name.trim());
@@ -1864,7 +1865,7 @@ function pickName(n) {
   touch(o); render();
   if (sheetCtx.replace) { closeSheet(); return; }
   sheetCtx.pick = nextEmpty(o, b, x) || [b, B.exercises.length];
-  S.pickFlash = `✓ ${n} added as ${LET[b] || b + 1}${x + 1}`; S.pickQ = "";
+  S.pickFlash = `✓ ${n} added as ${LET(b)}${x + 1}`; S.pickQ = "";
   const q = $("#pq"); if (q) q.value = "";
   renderPicker();
 }
@@ -1878,7 +1879,7 @@ const restVal = (o, k) => k === "bl" ? int(o.restBlock, 0) : int((baseBlock(o) |
 function teInfo(o, t) {
   if (!t) return null;
   if (t.t === "ex") { const b = o.blocks[t.b], e = b?.exercises[t.e]; return e && e.name.trim() ? { title: e.name.trim(), v: exWork(e, b), pin: exPin(e) != null, floor: 10, b, e } : null; }
-  if (t.t === "blk") { const b = o.blocks[t.b]; return b && namedEx(b).length ? { title: "Superset " + (LET[t.b] || t.b + 1), v: blockTotal(b, o), pin: fitLocked(b, o), floor: 10, b } : null; }
+  if (t.t === "blk") { const b = o.blocks[t.b]; return b && namedEx(b).length ? { title: "Superset " + LET(t.b), v: blockTotal(b, o), pin: fitLocked(b, o), floor: 10, b } : null; }
   if (t.t === "rest") return REST_NAME[t.k] ? { title: REST_NAME[t.k], v: restVal(o, t.k), pin: restPin(o, t.k) != null, floor: 5 } : null;
   if (t.t === "seg" && (t.which === "warmup" || t.which === "cooldown")) { const g = o[t.which]; return { title: String(g?.name || "").trim() || (t.which === "warmup" ? "Warm-up" : "Cool-down"), v: segDur(g), pin: false, floor: 60 }; }
   return null;
@@ -1915,7 +1916,7 @@ function teAuto(o, t) {
 function tePreview(t, v) {
   const o = clone(cur()); if (v != null) teApply(o, t, v);
   const I = teInfo(o, t); if (!I) return "";
-  const L = bi => LET[bi] || bi + 1, self = t.t === "ex" ? I.e : null;
+  const L = LET, self = t.t === "ex" ? I.e : null;
   if (!isFit(o)) {
     if (t.t === "rest") return "Rests are set on each superset while times are set by hand.";
     if (t.t === "seg") return `The workout becomes ${fmt(totalAll(o))}.`;
@@ -1958,14 +1959,14 @@ function renderTimeEditor(open) {
 /* After any time change: save, refresh the page in place, redraw the sheet */
 function teDone(o, freed) {
   touch(o); updTimerUI(); renderTimeEditor();
-  (freed || []).forEach(bi => snapUndo(`Superset ${LET[bi] || bi + 1} total now comes from its exercises`, freed.pre));
+  (freed || []).forEach(bi => snapUndo(`Superset ${LET(bi)} total now comes from its exercises`, freed.pre));
 }
 const teAttr = t => esc(JSON.stringify(t));
 function timeChip(t, txt, pin, label, id) {
   return `<button class="chip tchip ${pin ? "pin" : "auto"}"${id ? ` id="${id}"` : ""} data-act="te-open" data-te="${teAttr(t)}" aria-label="${esc(label)}: ${esc(txt)}${pin ? ", pinned" : ""}">${pin ? IC.lock : ""}${esc(txt)}</button>`;
 }
 const exChip = (o, bi, ei) => { const b = o.blocks[bi], e = b.exercises[ei]; return timeChip({ t: "ex", b: bi, e: ei }, sx(exWork(e, b)), exPin(e) != null, e.name.trim() + " time", `tc${bi}-${ei}`); };
-const blkChip = (o, bi) => timeChip({ t: "blk", b: bi }, fmt(blockTotal(o.blocks[bi], o)), fitLocked(o.blocks[bi], o), `Superset ${LET[bi] || bi + 1} total`, `tcb${bi}`);
+const blkChip = (o, bi) => timeChip({ t: "blk", b: bi }, fmt(blockTotal(o.blocks[bi], o)), fitLocked(o.blocks[bi], o), `Superset ${LET(bi)} total`, `tcb${bi}`);
 const restChip = (o, k) => timeChip({ t: "rest", k }, sx(restVal(o, k)), restPin(o, k) != null, REST_NAME[k]);
 function removeExercise(o, bi, ei) { snapUndo("Exercise removed"); S.tlSel = null; o.blocks[bi].exercises.splice(ei, 1); touch(o); render(); }
 /* fill for me */
@@ -2250,7 +2251,7 @@ function phaseInfo(i) {
   if (st.sub === "ready") return { label: "Get ready", sub: "First up" };
   if (st.sub === "switch") return { label: "Get ready", sub: "Move to the next exercise" };
   if (st.sub === "round") { const R = nx ? S.draft.blocks[nx.b].rounds : 0; return { label: "Rest", sub: nx ? (nx.r + 1 === R ? "Last round next" : `Round ${nx.r + 1} of ${R} next`) : "" }; }
-  return { label: "Rest", sub: nx ? `Superset ${LET[nx.b]} next` : "" };
+  return { label: "Rest", sub: nx ? `Superset ${LET(nx.b)} next` : "" };
 }
 function cue(prefix) {
   const st = T.steps[T.i]; if (!st) return; prefix = prefix || "";
@@ -2446,7 +2447,7 @@ function doneLog() {
   let h = "";
   d.blocks.forEach((b, bi) => {
     const exs = b.exercises.map((e, ei) => ({ e, ei })).filter(x => x.e.name.trim()); if (!exs.length) return;
-    h += `<div class="dlh">Superset ${LET[bi] || bi + 1} · ${b.rounds} round${b.rounds > 1 ? "s" : ""}</div>`;
+    h += `<div class="dlh">Superset ${LET(bi)} · ${b.rounds} round${b.rounds > 1 ? "s" : ""}</div>`;
     exs.forEach(({ e, ei }) => {
       const last = lastFor(e.name);
       const row = f => Array.from({ length: b.rounds }, (_, s) => {
@@ -2486,7 +2487,7 @@ function drawTimer(full) {
       const tgtIdx = isWork ? T.i : nextWorkIdx(T.i), tgt = tgtIdx >= 0 ? T.steps[tgtIdx] : null;
       const blk = tgt ? S.draft.blocks[tgt.b] : null, nEx = blk ? blk.exercises.filter(e => e.name.trim()).length : 0;
       const pos = blk ? blk.exercises.slice(0, tgt.e + 1).filter(e => e.name.trim()).length : 0;
-      const meta = tgt ? `Superset ${LET[tgt.b]} · Round ${tgt.r + 1} of ${blk.rounds} · Exercise ${pos} of ${nEx}` : "";
+      const meta = tgt ? `Superset ${LET(tgt.b)} · Round ${tgt.r + 1} of ${blk.rounds} · Exercise ${pos} of ${nEx}` : "";
       const ups = []; let j = tgtIdx; while (ups.length < 3 && j >= 0) { j = nextWorkIdx(j); if (j >= 0 && T.steps[j].side !== 2) ups.push(exName(T.steps[j])); }
       const reps = !!S.draft.logReps, prevI = prevWorkIdx(T.i), prev = !isWork && prevI >= 0 ? T.steps[prevI] : null;
       let logs = "";
@@ -2498,7 +2499,7 @@ function drawTimer(full) {
       const sub = !T.paused && !isWork && p.sub && st.sub !== "switch" ? p.sub : "";
       body = `<div class="tlab2">${T.paused ? "Paused" : esc(p.label)}${sub ? ` <span>· ${esc(sub)}</span>` : ""}</div>
         <div class="tnumrow"><button class="tadj" data-act="t-minus" aria-label="Take 15 seconds off">−15</button><div class="tbig${rem >= 60 ? " mm" : ""}" id="tnum">${numTxt}</div><button class="tadj" data-act="t-plus" aria-label="Add 15 seconds">+15</button></div>
-        ${segMain || (tgt ? `${isWork ? "" : `<div class="tlab3">Up next</div>`}<div class="tname2">${esc(stName(tgt))}</div>${isWork && blk.exercises[tgt.e]?.cue ? `<div class="tcue">${esc(blk.exercises[tgt.e].cue)}</div>` : ""}<div class="tmeta2">Round ${tgt.r + 1} of ${blk.rounds} · Superset ${LET[tgt.b]}</div>` : `<div class="tname2">Last stretch!</div>`)}
+        ${segMain || (tgt ? `${isWork ? "" : `<div class="tlab3">Up next</div>`}<div class="tname2">${esc(stName(tgt))}</div>${isWork && blk.exercises[tgt.e]?.cue ? `<div class="tcue">${esc(blk.exercises[tgt.e].cue)}</div>` : ""}<div class="tmeta2">Round ${tgt.r + 1} of ${blk.rounds} · Superset ${LET(tgt.b)}</div>` : `<div class="tname2">Last stretch!</div>`)}
         ${logs ? `<div class="tws">${logs}</div>` : ""}
         <div class="taphint">${T.paused ? "Tap anywhere to resume" : "Tap anywhere to pause"}</div>`;
       body = `<div class="tmain" data-act="t-pause">${body}</div><div class="tnext"><span>Next</span><b>${esc(nextName || "Finish")}</b></div>`;
@@ -2709,7 +2710,7 @@ async function logSession(d) {
 }
 async function finishWorkout() {
   const d = S.draft, timer = d.mode === "timer", keepReps = !timer || d.logReps;
-  const blocks = d.blocks.map((b, bi) => ({ label: "Superset " + (LET[bi] || bi + 1), rounds: b.rounds, work: int(b.work, 0), restEx: int(b.restEx, 0), restRound: int(b.restRound, 0), ...lockOf(b),
+  const blocks = d.blocks.map((b, bi) => ({ label: "Superset " + LET(bi), rounds: b.rounds, work: int(b.work, 0), restEx: int(b.restEx, 0), restRound: int(b.restRound, 0), ...lockOf(b),
     exercises: b.exercises.filter(e => e.name.trim()).map(e => ({ name: e.name.trim(), ...(planExercise(e).work ? { work: planExercise(e).work } : {}), ...(e.side === true ? { side: true } : {}), sets: e.sets.slice(0, b.rounds).map(s => ({ w: String(s.w ?? "").trim(), r: keepReps ? String(s.r ?? "").trim() : "" })) })) }))
     .filter(b => b.exercises.length);
   if (!blocks.length) { toast("Add at least one exercise before logging."); return false; }
@@ -2779,7 +2780,7 @@ document.addEventListener("click", e => {
     case "rm-block": {
       const has = o.blocks[bi].exercises.some(x => x.name || x.sets.some(s => s.w || s.r));
       const go = () => { snapUndo("Superset removed"); o.blocks.splice(bi, 1); touch(o); render(); };
-      has ? confirmSheet(`Remove Superset ${LET[bi]} and everything in it?`, "Remove", go, true) : go(); break;
+      has ? confirmSheet(`Remove Superset ${LET(bi)} and everything in it?`, "Remove", go, true) : go(); break;
     }
     case "add-seg": { const w = t.dataset.seg; if (!SEG_NAME[w]) break; o[w] = { name: SEG_NAME[w], dur: 300 }; touch(o); render(); break; }
     case "rm-seg": { const w = t.dataset.seg; if (!SEG_NAME[w]) break; snapUndo(SEG_NAME[w] + " removed"); if (S.te) closeSheet(); S.tlSel = null; delete o[w]; touch(o); render(); break; }
