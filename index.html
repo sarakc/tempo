@@ -2374,10 +2374,10 @@ function doneDataFor(early) {
   const st = settings();
   if (T.mode === "focus") {
     const { sec, rounds } = loggedTime(T.steps, T.spent, early, "focus");
-    return { mode: "focus", date: todayStr(), title: (T.task || "").trim() || "Focus", focusMin: int(st.focusMin, 25), rounds, roundsPlanned: T.steps[0].of, durationSec: sec, notes: "", early: !!early };
+    return { mode: "focus", date: dayOf(T.doneAt), title: (T.task || "").trim() || "Focus", focusMin: int(st.focusMin, 25), rounds, roundsPlanned: T.steps[0].of, durationSec: sec, notes: "", early: !!early };
   }
   const sec = loggedTime(T.steps, T.spent, early, "med").sec;
-  return { mode: "meditate", date: todayStr(), title: "Meditation", guide: st.medGuide, durationSec: sec, feel: "", notes: "", early: !!early };
+  return { mode: "meditate", date: dayOf(T.doneAt), title: "Meditation", guide: st.medGuide, durationSec: sec, feel: "", notes: "", early: !!early };
 }
 const FEELS = ["Restless", "Tired", "Steady", "Calm", "Clear"];
 function breathUpdate(st, rem) {
