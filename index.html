@@ -489,6 +489,7 @@ button.orow:active{transform:none;opacity:.6}
 <div id="restpill"></div>
 <div id="startbar"></div>
 <div id="toast"></div>
+<input type="file" id="import-file" accept=".csv,text/csv" hidden>
 <datalist id="folders"></datalist>
 
 <script>
@@ -1604,7 +1605,7 @@ function planCard(t) {
 }
 function viewPlans() {
   const q = S.wq.trim().toLowerCase(), f = S.wf, folders = folderList();
-  let h = `<div class="tday">${pageHead("Workouts", "", `<button class="btn primary sm" data-act="new-t">${IC.plusS}New</button>`)}</div>
+  let h = `<div class="tday">${pageHead("Workouts", "", `<button class="btn sm" data-act="import">Import</button><button class="btn primary sm" data-act="new-t">${IC.plusS}New</button>`)}</div>
     <input class="in search" id="wq" data-k="wq" type="search" placeholder="Search workouts or exercises" value="${esc(S.wq)}">
     <div class="fchips"><button data-act="wf" data-f="" class="${!f ? "on" : ""}">All</button><button data-act="wf" data-f="★" class="${f === "★" ? "on" : ""}">★ Favorites</button>${folders.map(x => `<button data-act="wf" data-f="${esc(x)}" class="${f === x ? "on" : ""}">${esc(x)}</button>`).join("")}</div>`;
   if (!S.templates.length) return h + `<div class="card empty">${S.dbState === "on" && !S.loaded.tpl ? "Loading…" : `<div class="etitle">No saved workouts yet</div>Build one on Today and tap “Save as workout”, or start a new one here.<div style="margin-top:14px"><button class="btn primary" data-act="new-t">${IC.plusS}New workout</button></div>`}</div>`;
@@ -1984,9 +1985,21 @@ function savePlan(update) {
   closeSheet(); toast(update ? "Workout updated" : "Saved to Workouts"); render();
 }
 function openEditor(id) { const t = tplById(id); if (!t) return; S.edit = { id, obj: objFromPlan(t) }; S.tab = "edit"; window.scrollTo(0, 0); render(); }
-function createPlan(p, open) {
+/* Each routine in a CSV becomes a saved workout in the folder being viewed. One opens in the editor; several stay on the list. */
+function importCSV(text, fileName) {
+  const r = routinesFromCSV(text, fileName);
+  if (r.error === "columns") { toast("That CSV needs a name column (Interval, Exercise or Name) and a seconds column (Duration (s), Seconds or Duration)"); return; }
+  if (r.error) { toast("No workouts found in that file"); return; }
   if (!S.db) { toast("Saving isn't available in this view."); return; }
-  const id = slug(p.name); p.order = Date.now(); p.updatedAt = Date.now();
+  const folder = S.wf && S.wf !== "★" ? S.wf : "", one = r.plans.length === 1, t0 = Date.now();
+  r.plans.forEach((p, i) => createPlan(planFromObj(Object.assign(p, { folder }), p.name), one, t0 + i)); // file order, not alphabetical
+  const n = r.plans.length;
+  toast(`Imported ${n} workout${n === 1 ? "" : "s"}${r.skipped ? ` · ${r.skipped} row${r.skipped === 1 ? "" : "s"} skipped` : ""}`);
+  if (!one) render();
+}
+function createPlan(p, open, order) {
+  if (!S.db) { toast("Saving isn't available in this view."); return; }
+  const id = slug(p.name); p.order = order ?? Date.now(); p.updatedAt = Date.now();
   writeDoc("templates/" + id, p);
   S.templates = S.templates.concat([Object.assign({ id }, clone(p))]);
   if (open) openEditor(id);
@@ -2754,6 +2767,7 @@ document.addEventListener("click", e => {
     /* workouts (plans) */
     case "wf": S.wf = t.dataset.f; render(); break;
     case "new-t": { const p = planFromObj(Object.assign(blankDraft("timer"), { autoFit: true, folder: S.wf && S.wf !== "★" ? S.wf : "" }), "New workout"); createPlan(p, true); break; }
+    case "import": $("#import-file").click(); break;
     case "clen": S.cardLen[id] = t.dataset.v; render(); break;
     case "start-t": { const tp = tplById(id); if (!tp) break; const v = S.cardLen[id] ?? planLens(tp).def;
       const nd = draftFrom(tp, tp.name, tp.id); nd.mode = "timer"; if (v) { nd.autoFit = true; nd.targetMin = v; }
@@ -2844,6 +2858,7 @@ document.addEventListener("change", e => {
   if ("teIn" in t.dataset) { const v = parseSecs(t.value); if (v != null && sheetCtx?.te) teDone(o, teApply(o, S.te, v)); else { t.value = ""; const p = $("#te-prev"); if (p && S.te) p.innerHTML = tePreview(S.te); } return; }
   if (t.dataset.change === "prog") { S.progEx = t.value; render(); return; }
   if (t.id === "snd-file" && t.files && t.files[0]) { const f = t.files[0]; t.value = ""; addSoundFile(f); return; }
+  if (t.id === "import-file" && t.files && t.files[0]) { const f = t.files[0]; t.value = ""; f.text().then(txt => importCSV(txt, f.name)); return; }
   if (t.id === "restore-file" && t.files && t.files[0]) {
     const f = t.files[0]; t.value = "";
     f.text().then(txt => { let data; try { data = JSON.parse(txt); } catch { toast("That file isn't a Tempo backup."); return; }
