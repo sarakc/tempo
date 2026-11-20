@@ -834,6 +834,54 @@ function suggestWeight(sessions, step) {
   if (a.reps !== null && a.reps < b.reps) return null;
   return String(Math.round((a.top + step) * 1000) / 1000);
 }
+/* ---------- CSV import ---------- */
+/* RFC 4180 rows: strips a BOM, takes CRLF or LF, quoted fields may hold commas, "" and line breaks. Blank lines are dropped. */
+function parseCSV(text) {
+  const s = String(text ?? "").replace(/^﻿/, ""), rows = [];
+  let row = [], f = "", q = false, i = 0;
+  const endRow = () => { row.push(f); f = ""; if (row.length > 1 || row[0] !== "") rows.push(row); row = []; };
+  while (i < s.length) {
+    const c = s[i];
+    if (q) {
+      if (c === '"') { if (s[i + 1] === '"') { f += '"'; i++; } else q = false; }
+      else f += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { row.push(f); f = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && s[i + 1] === "\n") i++; endRow(); }
+    else f += c;
+    i++;
+  }
+  if (f !== "" || row.length) endRow();
+  return rows;
+}
+const CUE_MAX = 300;
+const cueOf = v => String(v ?? "").trim().slice(0, CUE_MAX);
+/* Interval-timer CSV → workouts that play exactly as written: one pinned exercise per row, no fitting, no added rests */
+function routinesFromCSV(text, fileName) {
+  const rows = parseCSV(text), head = (rows[0] || []).map(h => h.trim().toLowerCase().replace(/\s+/g, " "));
+  const col = (...names) => { for (const n of names) { const i = head.indexOf(n); if (i >= 0) return i; } return -1; };
+  const cName = col("interval", "exercise", "name", "step name"), cSec = col("duration (s)", "seconds", "duration");
+  if (cName < 0 || cSec < 0) return { plans: [], skipped: 0, error: "columns" };
+  const cRoutine = col("routine"), cBlock = col("block"), cCue = col("cue", "notes");
+  const fallback = String(fileName || "").replace(/\.csv$/i, "").replace(/^\d+[-_ .]+/, "").trim() || "Imported workout";
+  const byName = new Map(); let skipped = 0;
+  rows.slice(1).forEach(row => {
+    const name = String(row[cName] ?? "").trim(), secs = parseSecs(row[cSec]);
+    if (!name || !secs) { skipped++; return; }
+    const rname = (cRoutine >= 0 && String(row[cRoutine] ?? "").trim()) || fallback;
+    let r = byName.get(rname);
+    if (!r) byName.set(rname, r = { name: rname, blocks: [], last: null, total: 0 });
+    const blk = cBlock >= 0 ? String(row[cBlock] ?? "").trim() : "";
+    if (!r.blocks.length || blk !== r.last) r.blocks.push({ rounds: 1, work: 45, restEx: 0, restRound: 0, exercises: [] });
+    r.last = blk; r.total += secs;
+    const ex = { name, work: secs }, cue = cCue >= 0 ? cueOf(row[cCue]) : "";
+    if (cue) ex.cue = cue;
+    r.blocks[r.blocks.length - 1].exercises.push(ex);
+  });
+  const plans = [...byName.values()].map(r => ({ name: r.name, mode: "timer", autoFit: false, restsOn: false, ready: 0, restBlock: 0,
+    targetMin: r.total / 60, balance: "even", restLocks: {}, blocks: r.blocks }));
+  return { plans, skipped, error: plans.length ? null : "empty" };
+}
 /* @end-testable */
 /* ---------- history index ---------- */
 function rebuildIndex() {

@@ -1,0 +1,21 @@
+Routine,Step,Block,Interval,Type,Duration (s),Duration,Starts at,Cue
+Strength express (10 min),1,,Get ready - round 1,Prep,15,0:15,0:00,
+Strength express (10 min),2,,Single-leg RDL with opposite-arm reach (right leg),Work,45,0:45,0:15,"~6 reps, 3 s down, hips level"
+Strength express (10 min),3,,Switch / set up,Prep,15,0:15,1:00,
+Strength express (10 min),4,,Single-leg RDL with opposite-arm reach (left leg),Work,45,0:45,1:15,"~6 reps, 3 s down, hips level"
+Strength express (10 min),5,,Switch / set up,Prep,15,0:15,2:00,
+Strength express (10 min),6,,Pallof press (right side to anchor),Work,45,0:45,2:15,"~8 reps, 2 s hold arms out"
+Strength express (10 min),7,,Switch / set up,Prep,15,0:15,3:00,
+Strength express (10 min),8,,Pallof press (left side to anchor),Work,45,0:45,3:15,"~8 reps, 2 s hold arms out"
+Strength express (10 min),9,,Switch / set up,Prep,15,0:15,4:00,
+Strength express (10 min),10,,Marching glute bridge,Work,45,0:45,4:15,"Hold the bridge, alternate slow leg lifts"
+Strength express (10 min),11,,Get ready - round 2,Prep,15,0:15,5:00,
+Strength express (10 min),12,,Split squat with rotation (right leg forward),Work,45,0:45,5:15,"~6 reps, rotate ribs toward front leg"
+Strength express (10 min),13,,Switch / set up,Prep,15,0:15,6:00,
+Strength express (10 min),14,,Split squat with rotation (left leg forward),Work,45,0:45,6:15,"~6 reps, rotate ribs toward front leg"
+Strength express (10 min),15,,Switch / set up,Prep,15,0:15,7:00,
+Strength express (10 min),16,,Side plank with reach-under (right),Work,45,0:45,7:15,"~5 reps, thread top arm under, open back up"
+Strength express (10 min),17,,Switch / set up,Prep,15,0:15,8:00,
+Strength express (10 min),18,,Side plank with reach-under (left),Work,45,0:45,8:15,"~5 reps, thread top arm under, open back up"
+Strength express (10 min),19,,Switch / set up,Prep,15,0:15,9:00,
+Strength express (10 min),20,,Dead bug (alternate),Work,45,0:45,9:15,"~5 per side, full exhale"

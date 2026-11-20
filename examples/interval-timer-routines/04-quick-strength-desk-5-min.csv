@@ -1,0 +1,13 @@
+Routine,Step,Block,Interval,Type,Duration (s),Duration,Starts at,Cue
+Quick strength - desk (5 min),1,,Get ready,Prep,10,0:10,0:00,
+Quick strength - desk (5 min),2,,Sit-to-stand from chair,Work,40,0:40,0:10,"~8 reps, 3 s down, squeeze glutes at the top"
+Quick strength - desk (5 min),3,,Switch / set up,Prep,10,0:10,0:50,
+Quick strength - desk (5 min),4,,Standing hip abduction (right leg),Work,40,0:40,1:00,"Hand on desk, slow lifts out to the side, pelvis level"
+Quick strength - desk (5 min),5,,Switch / set up,Prep,10,0:10,1:40,
+Quick strength - desk (5 min),6,,Standing hip abduction (left leg),Work,40,0:40,1:50,"Hand on desk, slow lifts out to the side, pelvis level"
+Quick strength - desk (5 min),7,,Switch / set up,Prep,10,0:10,2:30,
+Quick strength - desk (5 min),8,,Wall Pallof hold (right side to wall),Work,40,0:40,2:40,"Press near hand into the wall, brace, keep breathing"
+Quick strength - desk (5 min),9,,Switch / set up,Prep,10,0:10,3:20,
+Quick strength - desk (5 min),10,,Wall Pallof hold (left side to wall),Work,40,0:40,3:30,"Press near hand into the wall, brace, keep breathing"
+Quick strength - desk (5 min),11,,Switch / set up,Prep,10,0:10,4:10,
+Quick strength - desk (5 min),12,,Desk glute kickback (alternate),Work,40,0:40,4:20,"Hands on desk, ribs down, ~5 per side, 2 s squeeze"
