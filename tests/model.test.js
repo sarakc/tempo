@@ -111,3 +111,12 @@ test("cue: cut to 300 characters", () => {
   assert.equal(T.normExercise({ name: "A", cue: "x".repeat(400) }).cue.length, 300);
   assert.equal(T.planExercise({ name: "A", cue: "x".repeat(400) }).cue.length, 300);
 });
+
+test("draftDay: the day you did it, not the day the draft was made", () => {
+  const today = T.dayOf(Date.now());
+  assert.equal(T.draftDay({ date: "2026-01-02" }), today);
+  assert.equal(T.draftDay({ date: "2026-01-02", doneOn: "2026-01-05" }), "2026-01-05");
+  assert.equal(T.draftDay({ date: "2026-01-02", dateSet: true, doneOn: "2026-01-05" }), "2026-01-02");
+  assert.equal(T.draftDay({ date: "", dateSet: true }), today);
+  assert.equal(T.dayOf(new Date(2026, 2, 9, 23, 59).getTime()), "2026-03-09");
+});

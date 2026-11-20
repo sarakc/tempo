@@ -505,7 +505,10 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt
 const uid = () => Math.random().toString(36).slice(2, 10);
 const LET = "ABCDEFGHIJ";
 const pad = n => String(n).padStart(2, "0");
-const todayStr = () => { const d = new Date(); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
+const dayOf = t => { const d = new Date(t); return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); };
+const todayStr = () => dayOf(Date.now());
+/* The day a workout is logged under: a date picked by hand, else the day its timer finished, else today (not the day the draft was made). */
+const draftDay = d => (d.dateSet && d.date) || d.doneOn || todayStr();
 const fmt = s => { s = Math.max(0, Math.round(s || 0)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return h ? h + ":" + pad(m) + ":" + pad(x) : m + ":" + pad(x); };
 const fmtDate = (ds, long) => { if (!ds) return ""; const [y, m, d] = ds.split("-").map(Number); const dt = new Date(y, m - 1, d); return dt.toLocaleDateString(undefined, long ? { weekday: "short", month: "short", day: "numeric", year: "numeric" } : { month: "short", day: "numeric" }); };
 const num = v => { const n = parseFloat(String(v ?? "").replace(",", ".")); return isFinite(n) ? n : null; };
@@ -1381,7 +1384,7 @@ function viewBuilder(o, opt) {
     h += `<div class="card">${compose ? `<div class="ttl">Edit today's workout</div>` : ""}
       <div class="row2 namerow">
         <input class="in grow" data-bind="title" data-k="title" placeholder="Workout name" aria-label="Workout name" value="${esc(o.title)}">
-        <input class="in datein" type="date" data-bind="date" data-k="date" value="${esc(o.date)}" aria-label="Date">
+        <input class="in datein" type="date" data-bind="date" data-k="date" value="${esc(draftDay(o))}" aria-label="Date">
       </div>
       ${base ? `<div class="based">From <b style="color:var(--ink)">${esc(base.name)}</b><button class="link" data-act="edit-t" data-id="${esc(base.id)}">Edit saved workout</button></div>` : ""}
       <select class="in" data-change="src" aria-label="Start from">${srcOptions()}</select>
@@ -2162,7 +2165,7 @@ function startTimer(fresh) {
   const sig = stepsSig(steps), rs = S.draft.resume;
   const r = !fresh && rs && rs.sig === sig && rs.i < steps.length ? rs : null;
   const adj = r && r.adj ? Object.assign({}, r.adj) : {}, shown = applyAdj(steps, adj);
-  if (!r) { S.draft.durationSec = null; S.draft.startedAt = S.draft.startedAt && draftHasData(S.draft) ? S.draft.startedAt : Date.now(); }
+  if (!r) { S.draft.durationSec = null; delete S.draft.doneOn; S.draft.startedAt = S.draft.startedAt && draftHasData(S.draft) ? S.draft.startedAt : Date.now(); }
   const now = Date.now(), i = r ? r.i : 0, rem = r ? Math.max(1000, r.rem) : shown[0].dur * 1000;
   { const st0 = settings(); warmSounds([st0.sWorkGo, st0.sWorkRest, st0.sWorkCount, st0.sWorkDone]); }
   T = { mode: "workout", steps: shown, adj, sig, i, paused: false, remaining: rem, endAt: now + rem, started: now - (r ? (r.el || 0) * 1000 : 0), pausedMs: 0, pausedAt: null, cueKey: null, done: false, ask: false };
@@ -2298,7 +2301,7 @@ const elapsedSec = () => T ? Math.round(((T.done ? T.doneAt : (T.paused ? T.paus
 function finishTimer(early, at) {
   if (T.paused && T.pausedAt) { T.pausedMs += Date.now() - T.pausedAt; T.pausedAt = null; }
   T.done = true; T.early = !!early; T.ask = false; T.doneAt = at || Date.now(); clearInterval(T.int); wakeOff();
-  if (T.mode === "workout") { S.draft.durationSec = elapsedSec(); delete S.draft.resume; saveDraftSoon(); }
+  if (T.mode === "workout") { S.draft.durationSec = elapsedSec(); S.draft.doneOn = dayOf(T.doneAt); delete S.draft.resume; saveDraftSoon(); }
   else T.doneData = doneDataFor(early);
   if (!early) {
     if (T.mode === "workout") { playSound(settings().sWorkDone); buzz([150, 80, 150, 80, 300]); say("Workout complete. Nice work!"); }
@@ -2659,7 +2662,7 @@ async function finishWorkout() {
     .filter(b => b.exercises.length);
   if (!blocks.length) { toast("Add at least one exercise before logging."); return false; }
   if (!S.db) { toast("Saving isn't available in this view."); return false; }
-  const doc = { date: d.date || todayStr(), title: (d.title || "").trim(), mode: d.mode, blocks, notes: (d.notes || "").trim(), planId: d.planId || null,
+  const doc = { date: draftDay(d), title: (d.title || "").trim(), mode: d.mode, blocks, notes: (d.notes || "").trim(), planId: d.planId || null,
     restBlock: int(d.restBlock, 0), ready: int(d.ready, 0), restsOn: !!d.restsOn, autoFit: !!d.autoFit, targetMin: num(d.targetMin), balance: d.balance || "even", logReps: !!d.logReps,
     ...(num(d.restScale) != null ? { restScale: num(d.restScale) } : {}), restLocks: d.restLocks ? { ...d.restLocks } : {},
     ...(timer && d.warmup ? { warmup: { ...d.warmup } } : {}), ...(timer && d.cooldown ? { cooldown: { ...d.cooldown } } : {}),
@@ -2771,7 +2774,7 @@ document.addEventListener("click", e => {
     case "save-tpl": openSavePlan(S.draft); break;
     case "plan-update": savePlan(true); break;
     case "plan-new": savePlan(false); break;
-    case "clear": confirmSheet("Clear today's logged numbers and notes?", "Clear", () => { snapUndo("Cleared"); S.draft.blocks.forEach(b => b.exercises.forEach(x => x.sets = emptySets(b.rounds))); S.draft.notes = ""; S.draft.startedAt = null; S.draft.durationSec = null; delete S.draft.resume; S.showLog = false; saveDraftSoon(); render(); }, true); break;
+    case "clear": confirmSheet("Clear today's logged numbers and notes?", "Clear", () => { snapUndo("Cleared"); S.draft.blocks.forEach(b => b.exercises.forEach(x => x.sets = emptySets(b.rounds))); S.draft.notes = ""; S.draft.startedAt = null; S.draft.durationSec = null; delete S.draft.doneOn; delete S.draft.resume; S.showLog = false; saveDraftSoon(); render(); }, true); break;
     case "finish": finishWorkout(); break;
     case "start": startTimer(false); break;
     case "restart": delete S.draft.resume; startTimer(true); break;
@@ -2878,6 +2881,7 @@ document.addEventListener("input", e => {
     if (k === "warmup.name" || k === "cooldown.name") { const g = o[k.split(".")[0]]; if (g) { g.name = t.value; touch(o); updTimerUI(); } return; }
     if (k === "restsOn" || k === "autoFit" || k === "logReps") { o[k] = t.checked; touch(o); render(); return; }
     if (k === "targetMin") o.autoFit = true;
+    if (k === "date") o.dateSet = true;
     if (k === "restScale") { const v = num(t.value); if (v != null) o.restScale = v; touch(o); updTimerUI(); return; }
     if (k === "restBlock" || k === "ready") o[k] = t.value.replace(/[^0-9]/g, "");
     else if (k === "targetMin") o[k] = t.value.replace(/[^0-9.]/g, "");
