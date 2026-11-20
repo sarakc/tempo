@@ -2613,7 +2613,8 @@ function startRing() {
     playSound(s.sAlarm, v, true);
     buzz([400, 200, 400]); };
   const every = id => id === "beeps4" || id === "double" || id === "beep" ? 1600 : String(id).startsWith("c:") ? Math.max(2500, ((SBUF[id] && SBUF[id].duration) || 2) * 1000 + 800) : 3200;
-  const begin = () => { strike(); ringT = setInterval(strike, every(s.sAlarm)); };
+  const at = ringStart, begin = () => { if (!AL || !AL.ringing || ringStart !== at) return; // stopped or snoozed while a custom sound loaded
+    strike(); ringT = setInterval(strike, every(s.sAlarm)); };
   String(s.sAlarm).startsWith("c:") ? soundBuffer(s.sAlarm).then(begin) : begin();
 }
 function stopRing() { clearInterval(ringT); ringT = null; stopAllSounds(); }
