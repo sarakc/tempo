@@ -10,6 +10,11 @@
 
 **Spec:** `docs/superpowers/specs/2026-11-16-timing-reorder-design.md` (read it first; section numbers below refer to it).
 
+**Status (2026-11-20):** built. Boxes were ticked from git history: every task's commit is in `main`
+(`9a98279` to `19b7605`), and the manual checks weren't re-run for this tick. Still open: Task 15
+Steps 3 and 4 (the iPhone lock-screen test and keeping or dropping the setting). On Node 24, run
+`node --test` or `node --test tests/*.test.js`; the `node --test tests/` form used below fails there.
+
 ## Global Constraints
 
 - No build step, no frameworks, no third-party libraries, no npm packages (tests use Node built-ins only).
@@ -57,22 +62,22 @@ Deliberate deviation from spec section 1: warm-up and cool-down are stored as `d
 - Produces: `loadTempo()` in `tests/load.js` → an object with every name listed in `EXPORTS`. Later tasks add names to `EXPORTS`.
 - Produces: `timerDraft(overrides, blocks)` and `blk(names, rounds, extra)` in `tests/fixtures.js`.
 
-- [ ] **Step 1: Add marker regions in `index.html`.** Wrap three existing sections in `/* @testable */` … `/* @end-testable */`:
+- [x] **Step 1: Add marker regions in `index.html`.** Wrap three existing sections in `/* @testable */` … `/* @end-testable */`:
   1. the helper constants `esc` through `clone` (currently lines 459–468), but not `lsGet`/`lsSet`;
   2. `const LENS` through `const BAL` (lines 525–528);
   3. the whole `/* ---------- timer math ---------- */` section up to (not including) `/* ---------- history index ---------- */`. Move `const stepsSig` (line 1136) into this region.
 
   The timing region reads `DEF.targetMin`. The loader injects `DEF`. Don't move `DEF`.
 
-- [ ] **Step 2: Write `tests/load.js`.** `loadTempo()` reads `index.html`, concatenates every `@testable` region in order, and appends `;({ ...EXPORTS })`. It runs the result with `vm.runInNewContext(code, { DEF: { targetMin: 30 } })` and returns the object. Start with `EXPORTS = ["buildSteps","applyFit","totalAll","counts","blockTotal","blockFixed","stepsSig","BAL"]`. Also export `scriptSource()`, which returns the text between `<script>` and `</script>`.
+- [x] **Step 2: Write `tests/load.js`.** `loadTempo()` reads `index.html`, concatenates every `@testable` region in order, and appends `;({ ...EXPORTS })`. It runs the result with `vm.runInNewContext(code, { DEF: { targetMin: 30 } })` and returns the object. Start with `EXPORTS = ["buildSteps","applyFit","totalAll","counts","blockTotal","blockFixed","stepsSig","BAL"]`. Also export `scriptSource()`, which returns the text between `<script>` and `</script>`.
 
-- [ ] **Step 3: Write `tests/fixtures.js`.**
+- [x] **Step 3: Write `tests/fixtures.js`.**
   - `blk(names, rounds = 3, extra = {})` returns `{ id, rounds, work: 45, restEx: 15, restRound: 60, exercises: names.map((n, i) => ({ id: "e" + i + n, name: n, sets: [] })), ...extra }`, with a stable id taken from the names.
   - `timerDraft(overrides, blocks)` returns `{ mode: "timer", autoFit: true, targetMin: 30, balance: "even", restsOn: true, ready: 10, restBlock: 90, blocks, ...overrides }`.
 
-- [ ] **Step 4: Write `tests/parse.test.js`.** `test("app script parses")`: `new vm.Script(scriptSource())` doesn't throw.
+- [x] **Step 4: Write `tests/parse.test.js`.** `test("app script parses")`: `new vm.Script(scriptSource())` doesn't throw.
 
-- [ ] **Step 5: Write characterization tests in `tests/timing.test.js`.** These are today's exact outputs (probed from the current code):
+- [x] **Step 5: Write characterization tests in `tests/timing.test.js`.** These are today's exact outputs (probed from the current code):
 
 ```js
 test("fit: balanced, 2 supersets x 2 ex x 3 rounds, 30 min", () => {
@@ -89,9 +94,9 @@ test("empty-named rows are skipped", () => { /* blk(["Squat",""]) → 1 named ex
 
   `pickTimes(d)` reads `work`/`restEx`/`restRound` from `d.blocks[0]` and `restBlock` from `d`.
 
-- [ ] **Step 6: Run** `node --test tests/`. Expected: all pass (these lock in current behavior).
+- [x] **Step 6: Run** `node --test tests/`. Expected: all pass (these lock in current behavior).
 
-- [ ] **Step 7: Commit** `test: add timing harness and characterization tests`.
+- [x] **Step 7: Commit** `test: add timing harness and characterization tests`.
 
 ---
 
@@ -113,22 +118,22 @@ test("empty-named rows are skipped", () => { /* blk(["Squat",""]) → 1 named ex
   - `SIDE_SWITCH = 5`.
 - Workout fields from spec section 1: `restScale`, `restLocks: { ex?, rd?, bl? }`, `warmup?: { name, dur }`, `cooldown?: { name, dur }`. Superset fields: `lockTotal`.
 
-- [ ] **Step 1: Failing tests:**
+- [x] **Step 1: Failing tests:**
   - `restRatios legacy`: for each of `work`, `even` and `rest`, `restRatios({ balance: k })` deep-equals `BAL[k]`.
   - `restRatios scale`: `restRatios({ restScale: 1.5 })` deep-equals `{ ex: 0.5, rd: 2, bl: 3 }` (within 1e-9).
   - `normExercise`: `"Plank"` → `{ name: "Plank", sets: [], id: <string> }`. `{ name: "Plank", work: "60" }` keeps `work: 60`. `{ work: 0 }` and `{ work: "x" }` drop `work`. `{ side: "yes" }` drops `side`.
   - `planExercise`: `{ id, name: " Plank ", sets: [..], work: 60, side: true }` → `{ name: "Plank", work: 60, side: true }`. A plain one → `{ name: "Plank" }`.
-- [ ] **Step 2: Run** `node --test tests/`. Expected: new tests FAIL with "not a function".
-- [ ] **Step 3: Implement the helpers** above.
-- [ ] **Step 4: Wire the model:**
+- [x] **Step 2: Run** `node --test tests/`. Expected: new tests FAIL with "not a function".
+- [x] **Step 3: Implement the helpers** above.
+- [x] **Step 4: Wire the model:**
   - `mkBlock` exercises go through `normExercise`, keeping `work`/`side` from source objects.
   - `draftFrom` passes source exercise objects (not just names) and copies `lockTotal`.
   - `timingFrom` adds `restScale`, `restLocks` (default `{}`), `warmup` and `cooldown`, all copied from the source when present.
   - `normDraft` runs `normExercise` on every exercise.
   - `planFromObj` stores `exercises: named.map(planExercise)`, plus `lockTotal`, `restScale`, `restLocks`, `warmup` and `cooldown`. When `restScale` is set, also write `balance` as the nearest preset (≤0.8 → `work`, ≥1.25 → `rest`, otherwise `even`) for old devices.
   - `finishWorkout` adds `work`/`side` per exercise and `lockTotal` per superset, plus the workout-level fields above.
-- [ ] **Step 5: Run** `node --test tests/`. Expected: PASS, including the Task 1 characterization tests.
-- [ ] **Step 6: Commit** `feat: add pin, side and rest-scale fields with legacy compatibility`.
+- [x] **Step 5: Run** `node --test tests/`. Expected: PASS, including the Task 1 characterization tests.
+- [x] **Step 6: Commit** `feat: add pin, side and rest-scale fields with legacy compatibility`.
 
 ### Task 3: Fit calculation with pins, exact totals, sides and segments
 
@@ -149,7 +154,7 @@ test("empty-named rows are skipped", () => { /* blk(["Squat",""]) → 1 named ex
   - `stepsSig(steps)`: work steps include `bid.eid` and `side`, so `"w84:b1.e0"` and `"w84:b1.e0:s1"`.
   - `blockTotal(b, d)`: pinned superset returns `lockTotal`. Otherwise Σ(R·exUnits·exWork) + R·sides·SIDE_SWITCH + `blockFixed`.
 
-- [ ] **Step 1: Failing tests** (use fixtures; `sum(steps)` = total duration):
+- [x] **Step 1: Failing tests** (use fixtures; `sum(steps)` = total duration):
   - `exact total`: across a generated spread of workouts (1–4 supersets, 1–5 exercises, 1–6 rounds, targets 5–90 min in steps of 5, `restScale` from 0.4 to 2.0, random pins), for every case where `d.fit.short === false`: `totalAll(d) === targetMin*60`. Use a seeded generator (e.g. mulberry32 with seed 1) so failures reproduce.
   - `even spread`: in each such case, the durations of auto work steps in one pool differ by at most 1s.
   - `pinned exercise`: `[Squat, Plank{work:60}, Row]` × 3 at 30 min. Every Plank work step is 60, and Squat/Row equal each other ±1.
@@ -164,8 +169,8 @@ test("empty-named rows are skipped", () => { /* blk(["Squat",""]) → 1 named ex
   - `segments`: `warmup: { name: "Warm-up", dur: 300 }` → first step after `ready` is `{ k: "seg", dur: 300 }`, total still equals the target, no rest step adjacent.
   - `signature`: swapping two exercises with identical timings changes `stepsSig`.
   - Update Task 1 characterization tests: case A total becomes exactly 1800. Every other step duration matches the old output except at most the auto work steps adjusted by 1s.
-- [ ] **Step 2: Run** `node --test tests/`. Expected: new tests FAIL.
-- [ ] **Step 3: Implement `applyFit`.** The algorithm (the signature doesn't determine it):
+- [x] **Step 2: Run** `node --test tests/`. Expected: new tests FAIL.
+- [x] **Step 3: Implement `applyFit`.** The algorithm (the signature doesn't determine it):
 
 ```text
 segs   = (warmup?.dur||0) + (cooldown?.dur||0)
@@ -189,10 +194,10 @@ each locked b:  inner = lockTotal - (restsOn ? R(n-1)·ex : 0) - (R-1)·rd - R·
 d.fit.adj = short || allSet ? 0 : (T + segs + ready) - total_without_adj - Σ locked b.adj
 ```
 
-- [ ] **Step 4: Implement `buildSteps`.** Emit the step shapes above. Use `exWork` per exercise. Then, per pool (`"o"` uses `d.fit.adj`, each locked `bid` uses `b.adj`), spread the adjustment by adding `sign(adj)` × 1s to auto work steps of that pool, walking from the last step backward, round-robin until it's used up. Never take a step below 1s.
-- [ ] **Step 5: Update `counts`, `blockFixed`, `blockTotal`, `totalAll` and `stepsSig`** to match the interfaces. `counts` returns `nW` in units (sides count 2).
-- [ ] **Step 6: Run** `node --test tests/`. Expected: PASS.
-- [ ] **Step 7: Commit** `feat: fit with pinned exercises, supersets and rests; exact totals`.
+- [x] **Step 4: Implement `buildSteps`.** Emit the step shapes above. Use `exWork` per exercise. Then, per pool (`"o"` uses `d.fit.adj`, each locked `bid` uses `b.adj`), spread the adjustment by adding `sign(adj)` × 1s to auto work steps of that pool, walking from the last step backward, round-robin until it's used up. Never take a step below 1s.
+- [x] **Step 5: Update `counts`, `blockFixed`, `blockTotal`, `totalAll` and `stepsSig`** to match the interfaces. `counts` returns `nW` in units (sides count 2).
+- [x] **Step 6: Run** `node --test tests/`. Expected: PASS.
+- [x] **Step 7: Commit** `feat: fit with pinned exercises, supersets and rests; exact totals`.
 
 ### Task 4: Manual mode, fit fixes and fit summary
 
@@ -204,12 +209,12 @@ d.fit.adj = short || allSet ? 0 : (T + segs + ready) - total_without_adj - Σ lo
 - Produces: `backCalcWork(b, d, totalSec) -> number`. Pinned exercises keep their time. Returns the unpinned work, at least 5, spread over R·units(unpinned). With no unpinned exercise, returns `b.work` unchanged.
 - Produces: `fitFixes(o)` also lists up to two "Set {name} back to auto" buttons (`data-act="unpin"`, `data-b`, `data-e`, largest pins first) and "Set Superset {L} back to auto" (`data-act="unpin-blk"`). They appear when `o.fit.short` is true or `totalAll(o) > target + fitTol`.
 
-- [ ] **Step 1: Failing tests:** `backCalcWork` on `[Squat, Plank{work:60}]` × 3, `restEx` 15, `restRound` 60, total 600 → `(600 - 3·15 - 2·60 - 3·60) / 3` rounded = 85. Fully pinned superset → returns the existing `b.work`.
-- [ ] **Step 2: Run.** Expected: FAIL.
-- [ ] **Step 3: Implement** `backCalcWork` and use it in the `,total` change handler. Manual mode ignores `restLocks` and `lockTotal` (`applyFit` already returns early), so no other change is needed there.
-- [ ] **Step 4: Update `fitSummary`.** When `o.fit.allSet`, show "All times are set by hand · {fmt(total)}". Add the unpin buttons to `fitFixes` and handle `unpin` (delete `e.work`) and `unpin-blk` (delete `b.lockTotal`) in the click switch, followed by `touch(o); render()`.
-- [ ] **Step 5: Run** `node --test tests/`. Expected: PASS. **Manual check:** in timer mode, set fit off, type a Block time, and confirm a pinned exercise keeps its time.
-- [ ] **Step 6: Commit** `feat: manual-mode block time respects pins; unpin fixes`.
+- [x] **Step 1: Failing tests:** `backCalcWork` on `[Squat, Plank{work:60}]` × 3, `restEx` 15, `restRound` 60, total 600 → `(600 - 3·15 - 2·60 - 3·60) / 3` rounded = 85. Fully pinned superset → returns the existing `b.work`.
+- [x] **Step 2: Run.** Expected: FAIL.
+- [x] **Step 3: Implement** `backCalcWork` and use it in the `,total` change handler. Manual mode ignores `restLocks` and `lockTotal` (`applyFit` already returns early), so no other change is needed there.
+- [x] **Step 4: Update `fitSummary`.** When `o.fit.allSet`, show "All times are set by hand · {fmt(total)}". Add the unpin buttons to `fitFixes` and handle `unpin` (delete `e.work`) and `unpin-blk` (delete `b.lockTotal`) in the click switch, followed by `touch(o); render()`.
+- [x] **Step 5: Run** `node --test tests/`. Expected: PASS. **Manual check:** in timer mode, set fit off, type a Block time, and confirm a pinned exercise keeps its time.
+- [x] **Step 6: Commit** `feat: manual-mode block time respects pins; unpin fixes`.
 
 ### Task 5: Time editor sheet and time chips
 
@@ -223,9 +228,9 @@ d.fit.adj = short || allSet ? 0 : (T + segs + ready) - total_without_adj - Σ lo
 - Produces click actions: `te-step` (`data-d` ±5), `te-auto`, `te-side`, `te-up`, `te-down`, `te-rm`, `te-open` (opens from a chip with the target in `data-te` as JSON). Input `data-te-in` applies `parseSecs` on change.
 - Consumes: `applyFit`, `blockTotal`, `exWork` (Tasks 2–3).
 
-- [ ] **Step 1: Failing test** (`tests/model.test.js`): `parseSecs` cases from Review Focus 3. Add `parseSecs` to `EXPORTS`.
-- [ ] **Step 2: Run.** Expected: FAIL. **Step 3:** implement `parseSecs` in the timing region. **Step 4: Run.** Expected: PASS.
-- [ ] **Step 5: Build the sheet** per spec section 4:
+- [x] **Step 1: Failing test** (`tests/model.test.js`): `parseSecs` cases from Review Focus 3. Add `parseSecs` to `EXPORTS`.
+- [x] **Step 2: Run.** Expected: FAIL. **Step 3:** implement `parseSecs` in the timing region. **Step 4: Run.** Expected: PASS.
+- [x] **Step 5: Build the sheet** per spec section 4:
   - Title, big current time, −5/+5, a text field, and "Back to auto" only when pinned.
   - A preview line computed by cloning `cur()`, applying the pending value and running `applyFit`. Format: "The other {n} exercises go to {w}s each." For rests: "Work goes to {w}s."
   - For `t: "ex"`, also show the each-side toggle, Move up/down (wired in Task 9; hide until then) and Remove.
@@ -233,16 +238,16 @@ d.fit.adj = short || allSet ? 0 : (T + segs + ready) - total_without_adj - Σ lo
   - Pinning an exercise sets `e.work`. Pinning a superset sets `b.lockTotal` (fit on) or calls `backCalcWork` (fit off). Pinning a rest sets `o.restLocks[k]`.
   - If a pin leaves a `lockTotal` superset with no unpinned exercise, delete `lockTotal` and `toast("Superset {L} total now comes from its exercises")`. The toast becomes undoable in Task 8.
   - Every change runs `touch(o)`, `updTimerUI()` and re-renders the sheet.
-- [ ] **Step 6: Add chips.**
+- [x] **Step 6: Add chips.**
   - Exercise rows in `viewBuilder` (timer mode only): a right-aligned chip `sx(exWork(e,b))`, `.chip.auto` when unpinned, `.chip.pin` with a lock icon when pinned.
   - Superset header: a total chip using `fmt(blockTotal)`.
   - `fitSummary`: each rest value becomes a chip, pinned ones show the lock.
   - All chips use `data-act="te-open"`. Add `IC.lock` (16px padlock SVG via `svgI`).
-- [ ] **Step 7: Run** `node --test tests/`. Expected: PASS (parse test included). **Manual check** (`open index.html`, timer mode, 30 min):
+- [x] **Step 7: Run** `node --test tests/`. Expected: PASS (parse test included). **Manual check** (`open index.html`, timer mode, 30 min):
   - Pin one exercise to 60s → the others shrink and the total stays 30:00.
   - "Back to auto" restores the previous times.
   - Pin "switch" to 10s → the transitions show 10s.
-- [ ] **Step 8: Commit** `feat: time editor sheet with exercise, superset and rest pins`.
+- [x] **Step 8: Commit** `feat: time editor sheet with exercise, superset and rest pins`.
 
 ### Task 6: Work/rest slider
 
@@ -252,16 +257,16 @@ d.fit.adj = short || allSet ? 0 : (T + segs + ready) - total_without_adj - Σ lo
 **Interfaces:**
 - Consumes: `restRatios` (Task 2), rest chips (Task 5).
 
-- [ ] **Step 1: Replace the three `bal` buttons** with `<input type="range" min="0.4" max="2" step="0.1" data-bind="restScale">`.
+- [x] **Step 1: Replace the three `bal` buttons** with `<input type="range" min="0.4" max="2" step="0.1" data-bind="restScale">`.
   - Its starting value is `restScale`, or the legacy mapping (`work` 0.6, `even` 1, `rest` 1.5) when that's missing.
   - End labels "More work" / "More rest", and a tick labeled "Balanced" at 1.0.
   - Beneath it, a live line of rest chips: "{w}s work · {ex}s switch · {rd}s between rounds · {bl}s between supersets" (from Task 5's chip renderer).
-- [ ] **Step 2: Input handler.** `restScale` stores `num(t.value)`, then `touch(o)`, `updTimerUI()` and refreshes the live line in place without a full `render()`, so the slider keeps focus while dragging. Remove the `bal` click case.
-- [ ] **Step 3: Run** `node --test tests/`. Expected: PASS. **Manual check:**
+- [x] **Step 2: Input handler.** `restScale` stores `num(t.value)`, then `touch(o)`, `updTimerUI()` and refreshes the live line in place without a full `render()`, so the slider keeps focus while dragging. Remove the `bal` click case.
+- [x] **Step 3: Run** `node --test tests/`. Expected: PASS. **Manual check:**
   - Moving the slider updates times live, and the total stays exact.
   - A pinned rest doesn't move.
   - An old saved plan opens showing its old times until the slider is touched.
-- [ ] **Step 4: Commit** `feat: continuous work/rest slider`.
+- [x] **Step 4: Commit** `feat: continuous work/rest slider`.
 
 ---
 
@@ -276,13 +281,13 @@ d.fit.adj = short || allSet ? 0 : (T + segs + ready) - total_without_adj - Σ lo
 - Consumes: `buildSteps` step fields `bid`, `eid`, `sub` (Task 3), `openTimeEditor` (Task 5).
 - Produces: `S.tlSel`, which is `null`, `{ t: "ex", b, e }`, `{ t: "rest", k }` (step `sub` `switch` → `ex`, `round` → `rd`, `block` → `bl`) or `{ t: "seg", which }`.
 
-- [ ] **Step 1: Tag segments.** Each `<i>` in `timeline()` gets `data-si`. Segments matching `S.tlSel` get class `sel`. CSS: non-selected segments dim to 35% when a selection exists.
-- [ ] **Step 2: Pointer selection.** On `pointerdown`/`pointermove` (with `setPointerCapture`) over `#tl`, map the x position to a step index using the cumulative `flex` widths, set `S.tlSel` and update classes plus the strip in place (no full render).
+- [x] **Step 1: Tag segments.** Each `<i>` in `timeline()` gets `data-si`. Segments matching `S.tlSel` get class `sel`. CSS: non-selected segments dim to 35% when a selection exists.
+- [x] **Step 2: Pointer selection.** On `pointerdown`/`pointermove` (with `setPointerCapture`) over `#tl`, map the x position to a step index using the cumulative `flex` widths, set `S.tlSel` and update classes plus the strip in place (no full render).
   - Ready and side-switch steps don't select.
   - CSS `#tl { touch-action: pan-y }` so a vertical scroll still works.
-- [ ] **Step 3: Strip.** One line under the timeline: "Plank · 45s × 3 rounds", "Switch · 15s × 8" or "Warm-up · 5:00". It's a button with `data-act="te-open"` and the target. It's hidden when nothing is selected. Clear `S.tlSel` when the workout's structure changes.
-- [ ] **Step 4: Run** `node --test tests/`. Expected: PASS. **Manual check** on a phone-width window: slide across the timeline and the selection follows the finger. Tapping the strip opens the editor for that exercise.
-- [ ] **Step 5: Commit** `feat: select timeline segments to edit their time`.
+- [x] **Step 3: Strip.** One line under the timeline: "Plank · 45s × 3 rounds", "Switch · 15s × 8" or "Warm-up · 5:00". It's a button with `data-act="te-open"` and the target. It's hidden when nothing is selected. Clear `S.tlSel` when the workout's structure changes.
+- [x] **Step 4: Run** `node --test tests/`. Expected: PASS. **Manual check** on a phone-width window: slide across the timeline and the selection follows the finger. Tapping the strip opens the editor for that exercise.
+- [x] **Step 5: Commit** `feat: select timeline segments to edit their time`.
 
 ---
 
@@ -299,18 +304,18 @@ d.fit.adj = short || allSet ? 0 : (T + segs + ready) - total_without_adj - Σ lo
 - Produces: `doUndo()` restores `S.undo.obj` into `S.draft` (via `normDraft`) or `S.edit.obj`, then `touch()`s, `render()`s and clears `S.undo`. Ignored after 6.5s.
 - Consumed by Tasks 9, 10.
 
-- [ ] **Step 1: Implement** `toast` / `snapUndo` / `doUndo` and the `undo` click case.
-- [ ] **Step 2: Call `snapUndo` before** each of these, with messages "Exercise removed", "Superset removed", "Cleared", "Shuffled", "Back to auto" and "Superset {L} total now comes from its exercises":
+- [x] **Step 1: Implement** `toast` / `snapUndo` / `doUndo` and the `undo` click case.
+- [x] **Step 2: Call `snapUndo` before** each of these, with messages "Exercise removed", "Superset removed", "Cleared", "Shuffled", "Back to auto" and "Superset {L} total now comes from its exercises":
   - `rm-ex` and `rm-block` (keep the existing `rm-block` confirmation if there is one);
   - `clear` (inside its existing confirmation callback);
   - `doFill`;
   - `te-auto`, `unpin` and `unpin-blk`;
   - the `lockTotal` auto-clear in Task 5.
-- [ ] **Step 3: Pins when exercises are replaced** (spec section 2). `doFill` deletes `work` and `side` on each row it renames. `pickName` (the picker swap) keeps them.
-- [ ] **Step 4: Run** `node --test tests/`. Expected: PASS. **Manual check:**
+- [x] **Step 3: Pins when exercises are replaced** (spec section 2). `doFill` deletes `work` and `side` on each row it renames. `pickName` (the picker swap) keeps them.
+- [x] **Step 4: Run** `node --test tests/`. Expected: PASS. **Manual check:**
   - Remove an exercise with weights typed in → Undo brings back the exercise and its weights.
   - Shuffle → Undo restores the names and pins.
-- [ ] **Step 5: Commit** `feat: undo for remove, clear, shuffle and unpin`.
+- [x] **Step 5: Commit** `feat: undo for remove, clear, shuffle and unpin`.
 
 ### Task 9: Move operations and Move up/down
 
@@ -327,19 +332,19 @@ d.fit.adj = short || allSet ? 0 : (T + segs + ready) - total_without_adj - Σ lo
 - Produces: `moveBlock(o, from, to) -> void`, which reorders `o.blocks`.
 - Consumed by Task 10.
 
-- [ ] **Step 1: Failing tests:**
+- [x] **Step 1: Failing tests:**
   - Within a superset: `[A, B, C]`, move 0 → 2 gives `[B, C, A]`.
   - Across supersets: the exercise keeps its `id`, `sets` (all of them, even when the target has fewer rounds), `work` and `side`.
   - Moving the last exercise out removes the empty superset and the target index is still right.
   - Dropping at `blocks.length` creates a superset with the source's rounds.
   - `moveBlock` 0 → 2 on 3 supersets.
-- [ ] **Step 2: Run.** Expected: FAIL. **Step 3:** implement both and add them to `EXPORTS`. **Step 4: Run.** Expected: PASS.
-- [ ] **Step 5: Move up/down in the editor.**
+- [x] **Step 2: Run.** Expected: FAIL. **Step 3:** implement both and add them to `EXPORTS`. **Step 4: Run.** Expected: PASS.
+- [x] **Step 5: Move up/down in the editor.**
   - `te-up`/`te-down` call `snapUndo("Moved")` and then `moveExercise`.
   - Moving the first exercise of a superset up places it at the end of the previous superset. Moving the last one down places it at the start of the next superset. The buttons are disabled at the very top and bottom.
   - `S.te` follows the moved exercise, and the sheet re-renders.
   - Unhide the buttons that Task 5 hid.
-- [ ] **Step 6: Commit** `feat: move exercises and supersets, with move up/down`.
+- [x] **Step 6: Commit** `feat: move exercises and supersets, with move up/down`.
 
 ### Task 10: Drag and drop
 
@@ -350,24 +355,24 @@ d.fit.adj = short || allSet ? 0 : (T + segs + ready) - total_without_adj - Σ lo
 - Consumes: `moveExercise`, `moveBlock` (Task 9), `snapUndo` (Task 8), `buzz`.
 - Produces: `S.drag`, which is `null` or `{ kind: "ex" | "blk", from, ghost, placeholder, pointerId, startY, active }`.
 
-- [ ] **Step 1: Handles.**
+- [x] **Step 1: Handles.**
   - Exercise rows get a `⋮⋮` handle (`data-drag="ex" data-b data-e`) at the left of `.exn`.
   - The superset letter badge gets `data-drag="blk" data-b`.
   - CSS for handles: `touch-action: none; cursor: grab`, at least a 32px touch target.
-- [ ] **Step 2: Pointer handling.**
+- [x] **Step 2: Pointer handling.**
   - `pointerdown` on `[data-drag]` records the start position and calls `setPointerCapture`.
   - The drag activates after 6px of movement: `buzz(15)`, clone the row as a fixed-position ghost, and replace the original with a same-height placeholder.
   - `pointermove` moves the ghost. It finds the insertion point from the midpoints of the `.ex` rows (for exercises) or superset `.card`s (for supersets), and moves the placeholder there. The "+ Add superset" button is a drop zone meaning `to.b = blocks.length`.
   - Auto-scroll with `requestAnimationFrame` when the pointer is within 60px of the viewport's top or bottom edge.
   - `pointerup` runs `snapUndo("Moved")`, `moveExercise`/`moveBlock`, `touch(o)` and `render()`. `pointercancel` and Escape abort and restore the row.
-- [ ] **Step 3: Guard redraws.** While `S.drag?.active`, `render()` and `softRender()` set `S.renderPending = true` and return. `dragEnd` renders once if something was pending. Sync updates can arrive mid-drag, so this matters.
-- [ ] **Step 4: Run** `node --test tests/`. Expected: PASS. **Manual check** (phone-width window with touch emulation, and the real iPhone after deploy):
+- [x] **Step 3: Guard redraws.** While `S.drag?.active`, `render()` and `softRender()` set `S.renderPending = true` and return. `dragEnd` renders once if something was pending. Sync updates can arrive mid-drag, so this matters.
+- [x] **Step 4: Run** `node --test tests/`. Expected: PASS. **Manual check** (phone-width window with touch emulation, and the real iPhone after deploy):
   - Scrolling by swiping on exercise names doesn't start a drag.
   - Dragging a handle reorders the exercise.
   - Dragging to another superset keeps typed weights.
   - Dragging onto "+ Add superset" creates a new superset.
   - Undo reverses the move.
-- [ ] **Step 5: Commit** `feat: drag and drop exercises and supersets`.
+- [x] **Step 5: Commit** `feat: drag and drop exercises and supersets`.
 
 ---
 
@@ -383,23 +388,23 @@ d.fit.adj = short || allSet ? 0 : (T + segs + ready) - total_without_adj - Σ lo
 - Produces: `applyAdj(steps, adj) -> steps` (new array). `adj` is `{ [stepIndex]: seconds }`. Each step's `dur` becomes `max(1, dur + adj[i])`.
 - `T.adj` holds the session's adjustments. The resume record gains `adj`. `T.sig` stays the *unadjusted* signature, so `resumeOK`'s comparison is unchanged.
 
-- [ ] **Step 1: Failing tests** (Review Focus 5):
+- [x] **Step 1: Failing tests** (Review Focus 5):
   - `applyAdj` adds and floors at 1.
   - `stepsSig(buildSteps(d))` is equal before and after `applyAdj` is used for display (the signature is computed from base steps).
   - A reordered workout's signature differs (already covered in Task 3; reference it, don't duplicate).
-- [ ] **Step 2: Run.** Expected: FAIL. **Step 3:** implement `applyAdj` and export it. **Step 4: Run.** Expected: PASS.
-- [ ] **Step 5: Wire the timer.**
+- [x] **Step 2: Run.** Expected: FAIL. **Step 3:** implement `applyAdj` and export it. **Step 4: Run.** Expected: PASS.
+- [x] **Step 5: Wire the timer.**
   - `startTimer` applies `r.adj` when resuming.
   - `t-plus` adds 15 to `T.adj[T.i]`, `T.steps[T.i].dur`, `T.endAt` (or `T.remaining` when paused) and saves.
   - `t-minus` takes off up to 15, leaving at least 1s remaining. If there's 1s or less left, it calls `gotoStep(T.i + 1)`.
   - Reset `T.cueKey` so the 3-2-1 cues fire correctly after an adjustment.
   - `saveResume` stores `adj`.
   - The buttons (`−15` / `+15`) sit either side of `#tnum` and only show while the timer is running.
-- [ ] **Step 6: Manual check:**
+- [x] **Step 6: Manual check:**
   - +15 during a rest extends it, and "left" grows by 15.
   - −15 near the end skips ahead.
   - Leave → Resume keeps the adjustment.
-- [ ] **Step 7: Commit** `feat: add or remove 15 seconds on the live interval`.
+- [x] **Step 7: Commit** `feat: add or remove 15 seconds on the live interval`.
 
 ### Task 12: Each-side exercises in the UI and cues
 
@@ -409,13 +414,13 @@ d.fit.adj = short || allSet ? 0 : (T + segs + ready) - total_without_adj - Σ lo
 **Interfaces:**
 - Consumes: `side` steps from Task 3.
 
-- [ ] **Step 1: The `te-side` toggle** flips `e.side` (`true` / deleted), then `touch` and re-render. The exercise row shows a small "each side" tag.
-- [ ] **Step 2: Timer.**
+- [x] **Step 1: The `te-side` toggle** flips `e.side` (`true` / deleted), then `touch` and re-render. The exercise row shows a small "each side" tag.
+- [x] **Step 2: Timer.**
   - A work step with `side` shows "{name} · side {n}".
   - A `sub: "side"` rest shows the label "Switch sides". Its cue is the rest sound, `buzz([80,60,80])` and `say("Switch sides")`.
   - The "Up next" logic treats side 2 as the same exercise, so it doesn't announce "Next, Lunge" between the halves.
-- [ ] **Step 3: Run** `node --test tests/`. Expected: PASS. **Manual check:** an each-side exercise runs side 1 → 5s switch → side 2. A pinned 30s means 30s per side.
-- [ ] **Step 4: Commit** `feat: each-side exercises`.
+- [x] **Step 3: Run** `node --test tests/`. Expected: PASS. **Manual check:** an each-side exercise runs side 1 → 5s switch → side 2. A pinned 30s means 30s per side.
+- [x] **Step 4: Commit** `feat: each-side exercises`.
 
 ### Task 13: Warm-up and cool-down
 
@@ -425,23 +430,23 @@ d.fit.adj = short || allSet ? 0 : (T + segs + ready) - total_without_adj - Σ lo
 **Interfaces:**
 - Consumes: `d.warmup` / `d.cooldown` and `seg` steps (Tasks 2–3).
 
-- [ ] **Step 1: Builder** (timer mode only):
+- [x] **Step 1: Builder** (timer mode only):
   - "+ Add warm-up" above the first superset card and "+ Add cool-down" below the last. Each creates `{ name: "Warm-up" | "Cool-down", dur: 300 }`.
   - Once added, it shows as a slim card with an editable name field (`data-bind` path `warmup.name` / `cooldown.name`, handled in the input handler), a time chip (opens `te-open` with `t: "seg"`) and a remove button (undoable).
   - Hidden in reps mode, but the data is kept.
-- [ ] **Step 2: Timer.**
+- [x] **Step 2: Timer.**
   - A `seg` step shows the segment name in large type with the label "Warm-up" / "Cool-down", in the rest colors.
   - Its cue is the rest sound plus `say(name)`. Fix the places that assume a non-work step is followed by a work step:
     - `phaseInfo` returns `{ label, sub: "" }` for `seg`;
     - `drawTimer` shows "Up next: {first exercise}" during a warm-up and "Last stretch" style text during the cool-down.
-- [ ] **Step 3: Logging.**
+- [x] **Step 3: Logging.**
   - `finishWorkout` saves `warmup`/`cooldown` (timer mode only) on the logged workout.
   - `viewHistory` prints "Warm-up · 5:00" / "Cool-down · 5:00" lines.
   - `planFromObj` saves them (already in Task 2's field list; verify).
-- [ ] **Step 4: Run** `node --test tests/`. Expected: PASS. **Manual check:**
+- [x] **Step 4: Run** `node --test tests/`. Expected: PASS. **Manual check:**
   - A 30-minute workout with a 5-minute warm-up runs 5:00 of warm-up, then the supersets, and totals 30:00.
   - Logging shows the warm-up in History.
-- [ ] **Step 5: Commit** `feat: warm-up and cool-down segments`.
+- [x] **Step 5: Commit** `feat: warm-up and cool-down segments`.
 
 ---
 
@@ -460,7 +465,7 @@ d.fit.adj = short || allSet ? 0 : (T + segs + ready) - total_without_adj - Σ lo
   - Otherwise it returns `null`. A mix of reps and no reps also returns `null`.
 - `DEF.wtStep = null`. The effective step is `settings().wtStep ?? (unit === "kg" ? 2.5 : 5)`.
 
-- [ ] **Step 1: Failing tests:**
+- [x] **Step 1: Failing tests:**
   - `[25×10, 25×10]` → `"30"`.
   - `[25×12, 25×10]` → `"30"`.
   - `[25×8, 25×10]` → `null`.
@@ -468,12 +473,12 @@ d.fit.adj = short || allSet ? 0 : (T + segs + ready) - total_without_adj - Σ lo
   - With step 2.5: `[25, 25]` (no reps) → `"27.5"`.
   - `[25×10, 25]` (mixed) → `null`.
   - Only one session → `null`.
-- [ ] **Step 2: Run.** Expected: FAIL. **Step 3:** implement and export. **Step 4: Run.** Expected: PASS.
-- [ ] **Step 5: Show it.**
+- [x] **Step 2: Run.** Expected: FAIL. **Step 3:** implement and export. **Step 4: Run.** Expected: PASS.
+- [x] **Step 5: Show it.**
   - Append " · try {x}" to the "Last time (…)" hint line in the builder and to the post-workout log row label, when `suggestWeight` returns a value.
   - Placeholders stay as last time's weight, and nothing gets auto-filled.
   - Add a "Weight step" field in Settings next to the unit.
-- [ ] **Step 6: Commit** `feat: suggest a weight increase from history`.
+- [x] **Step 6: Commit** `feat: suggest a weight increase from history`.
 
 ---
 
@@ -491,14 +496,14 @@ d.fit.adj = short || allSet ? 0 : (T + segs + ready) - total_without_adj - Σ lo
   - It's called from `startTimer` (inside the user's tap) when `settings().bgAudio` is on, and turned off in `finishTimer` / `closeTimer`.
   - `cue()` updates the metadata title on each step.
 
-- [ ] **Step 1: Implement** behind the setting, off by default.
-- [ ] **Step 2: Run** `node --test tests/`. Expected: PASS. **Commit** `feat: experimental keep-sounds-playing-when-locked setting`.
-- [ ] **Step 3: Hand off to the user** (only they can run this). The test:
+- [x] **Step 1: Implement** behind the setting, off by default.
+- [x] **Step 2: Run** `node --test tests/`. Expected: PASS. **Commit** `feat: experimental keep-sounds-playing-when-locked setting`.
+- [ ] **Step 3 (not done as of 2026-11-20; the setting is built but untested on the iPhone): Hand off to the user** (only they can run this). The test:
   1. Deploy.
   2. On the installed iPhone app, turn the setting on.
   3. Start a 30-minute workout and lock the phone.
   4. Note whether every cue plays through to the end, and whether the lock screen shows the exercise.
-- [ ] **Step 4: Follow up on the result.**
+- [ ] **Step 4 (not done; waits on Step 3): Follow up on the result.**
   - If it works: default the setting to on, drop "(experimental)", and update README "Good to know".
   - If it doesn't: remove the code. Either way, record what happened in spec section 12.
   - Commit.

@@ -1,7 +1,8 @@
 # Tempo: flexible timing, reordering and workout-timer upgrades
 
 Date: 2026-11-16
-Status: draft for review
+Status: built 2026-11-16 (commits `9a98279` to `19b7605`, plus follow-up fixes). Section 12, the
+lock-screen audio experiment, is built behind a setting but its iPhone test and keep-or-drop decision are still open.
 
 ## Why
 
