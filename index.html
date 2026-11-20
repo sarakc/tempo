@@ -394,6 +394,7 @@ button.orow:active{transform:none;opacity:.6}
 .nap{font-size:14px;letter-spacing:.14em;font-weight:700}
 .nmeta{font-size:14px;margin-top:26px}
 .nsub{font-size:12.5px;opacity:.8;margin-top:4px}
+.nwarn{font-size:13px;font-weight:600;color:#ffc58f;border:1px solid currentColor;border-radius:999px;padding:7px 14px;margin-top:14px}
 .nbtns{display:flex;justify-content:center;gap:24px;padding:0 0 calc(30px + env(safe-area-inset-bottom))}
 .nbtns button{border:0;background:none;color:inherit;font-weight:600;padding:12px;font-size:14px}
 .alwrap{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 26px}
@@ -2011,7 +2012,9 @@ function createPlan(p, open, order) {
 
 /* ---------- timer overlay ---------- */
 let T = null, AC = null, wake = null;
-function ensureAudio() { try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === "suspended") AC.resume(); } catch {} }
+// resumes anything but "running": iOS also reports "interrupted" after a call or a lock
+function ensureAudio() { try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state !== "running") Promise.resolve(AC.resume()).catch(() => {}); } catch {} }
+const audioOK = () => !!AC && AC.state === "running";
 function beep(f, d, when, vol) {
   if (!AC) return;
   try { const t0 = AC.currentTime + (when || 0), o = AC.createOscillator(), g = AC.createGain(); o.type = "sine"; o.frequency.value = f;
@@ -2550,9 +2553,10 @@ function drawAlarm(partial) {
     return;
   }
   const a = fmt12(atToHHMM(AL.at));
-  if (partial) { const k = $("#al-clock"), ap = $("#al-ap"), n = $("#al-in"); if (k) k.textContent = c.t; if (ap) ap.textContent = c.ap; if (n) n.textContent = untilTxt(AL.at); return; }
+  if (partial) { const k = $("#al-clock"), ap = $("#al-ap"), n = $("#al-in"), w = $("#al-snd"); if (k) k.textContent = c.t; if (ap) ap.textContent = c.ap; if (n) n.textContent = untilTxt(AL.at); if (w) w.hidden = audioOK(); return; }
   el.innerHTML = `<div class="nightwrap" data-act="al-bright"><div class="nclock" id="al-clock">${c.t}</div><div class="nap" id="al-ap">${c.ap}</div>
-    <div class="nmeta">${AL.snoozed ? "Snoozed until" : "Alarm"} ${a.t} ${a.ap} · in <span id="al-in">${untilTxt(AL.at)}</span></div><div class="nsub">Keep this screen open and the charger in. Tap to brighten.</div></div>
+    <div class="nmeta">${AL.snoozed ? "Snoozed until" : "Alarm"} ${a.t} ${a.ap} · in <span id="al-in">${untilTxt(AL.at)}</span></div><div class="nsub">Keep this screen open and the charger in. Tap to brighten.</div>
+    <div class="nwarn" id="al-snd" role="status"${audioOK() ? " hidden" : ""}>Tap the screen once so the alarm can make a sound.</div></div>
     <div class="nbtns"><button data-act="al-close">Back</button><button data-act="al-off">Turn off alarm</button></div>`;
 }
 function viewAlarm() {
@@ -2915,6 +2919,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
   if (document.visibilityState === "visible" && AL && $("#alarm").classList.contains("open")) wakeOn();
   if (!T || T.done) return; if (document.visibilityState === "visible") { wakeOn(); tick(); } else saveResume(); });
 
+["touchend", "click"].forEach(ev => $("#alarm").addEventListener(ev, ensureAudio)); // any tap here unlocks sound, which a reload leaves locked
 if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 [["today", "today"], ["plans", "list"], ["history", "clock"], ["settings", "gear"]].forEach(([t, i]) => { const b = $("#nb-" + t); b.innerHTML = IC[i] + `<span>${b.textContent}</span>`; });
 init();
