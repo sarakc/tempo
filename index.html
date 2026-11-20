@@ -963,8 +963,13 @@ function touch(o) { o = o || cur(); applyFit(o); if (isPlan(o)) saveEditSoon(); 
    so two devices can be merged record by record: the newest change to each record wins. */
 const DB_KEY = "tempo.db.v1", META_KEY = "tempo.db.meta";
 const syncable = k => !k.startsWith("drafts/");
+/* @testable */
+/* Change times only go forward: past every stamp made or taken from another device (whose clock may run fast),
+   and past the record's own previous stamp (prev), which survives a reload when lastStamp doesn't. */
 let lastStamp = 0;
-const stampNow = () => (lastStamp = Math.max(Date.now(), lastStamp + 1));
+const stampNow = prev => (lastStamp = Math.max(Date.now(), lastStamp + 1, (prev || 0) + 1));
+const noteStamp = t => { if (t > lastStamp) lastStamp = t; };
+/* @end-testable */
 function localDB() {
   let store = {}, meta = {};
   const load = () => { try { store = JSON.parse(localStorage.getItem(DB_KEY)) || {}; } catch { store = {}; } meta = lsGet(META_KEY) || {}; };
@@ -975,7 +980,7 @@ function localDB() {
   const save = () => { try { localStorage.setItem(DB_KEY, JSON.stringify(store)); localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch (e) { const er = new Error("Storage is full"); er.code = "quota_exceeded"; throw er; } };
   const notify = () => setTimeout(() => subs.forEach(f => { try { f(); } catch {} }), 0);
   const api = { onChange: null };
-  const stamp = (p, del) => { if (!syncable(p)) return; meta[p] = del ? { t: stampNow(), del: 1 } : { t: stampNow() }; if (api.onChange) api.onChange(); };
+  const stamp = (p, del) => { if (!syncable(p)) return; const t = stampNow(meta[p] && meta[p].t); meta[p] = del ? { t, del: 1 } : { t }; if (api.onChange) api.onChange(); };
   const snapDoc = p => ({ exists: p in store, data: () => cl(store[p]) });
   const inColl = n => Object.keys(store).filter(k => k.startsWith(n + "/") && k.split("/").length === 2);
   const snapColl = n => ({ metadata: { fromCache: false }, docs: inColl(n).map(k => ({ id: k.slice(n.length + 1), data: () => cl(store[k]) })) });
@@ -1003,7 +1008,7 @@ function localDB() {
       return out;
     },
     applyRemote(entries) {
-      for (const k in entries) { const e = entries[k]; if (!syncable(k)) continue;
+      for (const k in entries) { const e = entries[k]; if (!syncable(k)) continue; noteStamp(e.t);
         if (e.del) { delete store[k]; meta[k] = { t: e.t, del: 1 }; } else { store[k] = cl(e.d); meta[k] = { t: e.t }; } }
       save(); notify();
     },
