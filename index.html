@@ -969,11 +969,11 @@ function handleErr(e) {
   else toast("Couldn't save" + (e && e.message ? ": " + e.message : ""));
   setSync(S.db ? "Save failed" : "Not saving", true);
 }
-let draftT = null, editT = null, setT = null;
+let editT = null, setT = null;
+/* The draft lives in wt.draft only. It used to be copied into the database as drafts/current too, which nothing read
+   and which rewrote the whole database (every logged session) on each save. */
 function saveDraftSoon() {
   lsSet("wt.draft", Object.assign({}, S.draft, { updatedAt: Date.now() }));
-  clearTimeout(draftT);
-  draftT = setTimeout(() => writeDoc("drafts/current", Object.assign({}, S.draft, { updatedAt: Date.now() })), 900);
 }
 function saveEditSoon() {
   if (!S.edit) return; const { id, obj } = S.edit; clearTimeout(editT); setSync("Editing…");
@@ -2726,8 +2726,7 @@ async function finishWorkout() {
   catch (e) { handleErr(e); return false; }
   const base = d.planId && tplById(d.planId);
   if (base && (!base.lastUsed || base.lastUsed < doc.date)) writeDoc("templates/" + base.id, Object.assign(stripId(base), { lastUsed: doc.date }));
-  clearTimeout(draftT);
-  dropUndo(); S.draft = blankDraft(d.mode); S.showLog = false; lsSet("wt.draft", null); writeDoc("drafts/current", null);
+  dropUndo(); S.draft = blankDraft(d.mode); S.showLog = false; lsSet("wt.draft", null); writeDoc("drafts/current", null); // clears an older version's copy
   S.tab = "history"; lsSet("wt.tab", "history"); stopRest(); window.scrollTo(0, 0); render(); toast("Workout logged 💪");
   return true;
 }
