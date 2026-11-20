@@ -61,7 +61,8 @@ workout-app's CSV import.
 ## Cues in Tempo
 - An exercise may carry `cue` (a trimmed string, at most 300 characters). Saving, loading, duplicating
   and syncing keep it.
-- When an exercise is swapped for a different one in the picker, its cue is cleared, along with its time and side.
+- When an exercise is swapped for a different one in the picker, its cue is cleared. Its time and side stay, as the picker
+  has always kept them. "Fill for me" clears time, side and cue, as it already cleared time and side.
 - **Editor:** the cue shows as a small muted line under the exercise name. The exercise sheet (the time
   editor) has a "Cue" text field.
 - **Player:** during a work step, the cue shows under the exercise name.

@@ -112,3 +112,16 @@ test("example all-routines.csv: ten workouts in file order", () => {
   assert.equal(T.totalAll(toTimer(full)), 2700);
   r.plans.forEach(p => assert.equal(T.totalAll(toTimer(p)), minutesIn(p.name)));
 });
+
+test("parseCSV: a quote inside an unquoted cell is just a character", () => {
+  assert.deepEqual(plain(T.parseCSV('Plank,Keep feet 6" apart\nSquat,x\n')), [["Plank", 'Keep feet 6" apart'], ["Squat", "x"]]);
+  const r = T.routinesFromCSV('Name,Seconds,Cue\nPlank,30,Keep feet 6" apart\nSquat,30,x\nLunge,30,"y"\n', "a.csv");
+  assert.deepEqual(plain(r.plans[0].blocks[0].exercises.map(e => e.name)), ["Plank", "Squat", "Lunge"]);
+  assert.equal(r.plans[0].blocks[0].exercises[0].cue, 'Keep feet 6" apart');
+});
+
+test("parseCSV: rows of empty cells (Excel's cleared rows) are dropped, not counted as skipped", () => {
+  assert.deepEqual(plain(T.parseCSV("a,b\n,\n1,2\n , \n")), [["a", "b"], ["1", "2"]]);
+  const r = T.routinesFromCSV("Name,Seconds,Cue\nPlank,30,\n,,\n,,\n", "a.csv");
+  assert.equal(r.skipped, 0);
+});
