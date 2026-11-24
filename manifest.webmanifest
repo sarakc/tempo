@@ -1,6 +1,7 @@
 {
   "name": "Tempo",
   "short_name": "Tempo",
+  "id": "/tempo/",
   "description": "Workout, focus, meditation and alarm timers in one simple app.",
   "start_url": "./",
   "scope": "./",
