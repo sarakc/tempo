@@ -529,8 +529,6 @@ const IC = {
   close: svgI('<path d="M6 6l12 12"/><path d="M18 6L6 18"/>', 18),
   sound: svgI('<path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a8 8 0 0 1 0 11"/>', 18),
   mute: svgI('<path d="M11 5L6 9H3v6h3l5 4z"/><path d="M16 9l5 6"/><path d="M21 9l-5 6"/>', 18),
-  voice: svgI('<path d="M4 5h16v10H9l-5 4z"/><path d="M8 10h8"/>', 18),
-  novoice: svgI('<path d="M4 5h16v10H9l-5 4z"/><path d="M3 3l18 18"/>', 18),
   minus: svgI('<path d="M5 12h14"/>', 22),
   plus: svgI('<path d="M12 5v14"/><path d="M5 12h14"/>', 22),
   shuffle: svgI('<path d="M3 7h3.5l10 10H21"/><path d="M3 17h3.5l3-3"/><path d="M14 10l2.5-3H21"/><path d="M18 4l3 3-3 3"/><path d="M18 14l3 3-3 3"/>', 16),
@@ -604,7 +602,7 @@ const S = {
   tlSel: null, tlO: null, tlKey: "",
   db: null, dbState: "loading", tab: lsGet("wt.tab") || "today",
   library: null, settings: {}, templates: [], workouts: [], lastIdx: new Map(),
-  draft: null, edit: null, open: {}, progEx: "", muted: !!lsGet("wt.muted"), voice: lsGet("wt.voice") !== false,
+  draft: null, edit: null, open: {}, progEx: "", muted: !!lsGet("wt.muted"), voice: lsGet("wt.voice") === true,
   pickCat: "", pickQ: "", pickFlash: "", wq: "", wf: "", loaded: { lib: false, wk: false, tpl: false },
   mode: lsGet("tempo.mode") || "workout", sounds: [], hf: "all", adv: false, lenCustom: false, showLog: false, cardLen: {}, fillCats: null, fillShape: "keep", prevTab: "today", te: null, drag: null, renderPending: false, wtTxt: null
 };
@@ -1779,8 +1777,9 @@ function viewSettings() {
   <div class="shh">Sounds & voice</div>
   <div class="card ocard">
     ${MODES.map(m => `<button class="orow" data-act="snd-mode" data-m="${m.id}"><span class="grow">${m.label} sounds</span><span class="ov">${esc(soundName(st[SOUND_EVENTS[m.id][0][0]]))}${SOUND_EVENTS[m.id].length > 1 ? " …" : ""}</span><span class="chev">${IC.chev}</span></button>`).join("")}
-    ${togRow("Coaching cues <span class='small muted' style='display:block;font-weight:400'>“Halfway”, “ten seconds”, “last round”</span>", "cues")}
-    ${togRow("Say “3, 2, 1” out loud <span class='small muted' style='display:block;font-weight:400'>Instead of beeping</span>", "count321")}
+    <label class="orow"><span class="grow">Voice <span class='small muted' style='display:block;font-weight:400'>Reads out exercises and timer changes</span></span><input type="checkbox" data-voice ${S.voice ? "checked" : ""}></label>
+    ${S.voice ? togRow("Coaching cues <span class='small muted' style='display:block;font-weight:400'>“Halfway”, “ten seconds”, “last round”</span>", "cues") : ""}
+    ${S.voice ? togRow("Say “3, 2, 1” out loud <span class='small muted' style='display:block;font-weight:400'>Instead of beeping</span>", "count321") : ""}
     ${togRow("Keep sounds playing when locked (experimental)", "bgAudio")}
   </div>
   <div class="shh">Exercise library</div>
@@ -2411,7 +2410,7 @@ function drawOther(full) {
     return;
   }
   el.className = "open " + (med ? "med" : T.done ? "done" : st.kind === "focus" ? "fwork" : "rest");
-  const top = `<div class="tt"><button class="tb" data-act="t-x" aria-label="${T.done ? "Close" : "Pause"}">${IC.close}</button><div class="tm"></div>${med ? "" : `<button class="tb" data-act="t-voice" aria-label="${S.voice ? "Voice on" : "Voice off"}">${S.voice ? IC.voice : IC.novoice}</button>`}<button class="tb" data-act="t-mute" aria-label="${S.muted ? "Sound off" : "Sound on"}">${S.muted ? IC.mute : IC.sound}</button></div>`;
+  const top = `<div class="tt"><button class="tb" data-act="t-x" aria-label="${T.done ? "Close" : "Pause"}">${IC.close}</button><div class="tm"></div><button class="tb" data-act="t-mute" aria-label="${S.muted ? "Sound off" : "Sound on"}">${S.muted ? IC.mute : IC.sound}</button></div>`;
   let body;
   if (T.done) body = `<div class="tbody top">${doneOther()}</div>`;
   else if (T.ask) body = `<div class="tbody"><div class="phase">Paused</div><div class="tname" style="margin-top:10px">${med ? "Take your time" : "Taking a pause"}</div><div class="tmeta">${fmt(left)} to go</div>
@@ -2509,7 +2508,7 @@ function drawTimer(full) {
     const works = T.steps.filter(x => x.k === "work").length, tIdx = st.k === "work" ? T.i : nextWorkIdx(T.i);
     const wNo = T.steps.slice(0, (tIdx >= 0 ? tIdx : T.steps.length - 1) + 1).filter(x => x.k === "work").length;
     const segs = T.steps.map((x, i) => `<i class="${x.k === "work" ? "" : "r"}" style="flex:${x.dur} 1 0"><b${i === T.i ? ' id="tsegcur"' : ""} style="width:${i < T.i ? 100 : i > T.i ? 0 : (100 * (1 - rem / x.dur)).toFixed(1)}%"></b></i>`).join("");
-    el.innerHTML = `<div class="tt"><button class="tb" data-act="t-x" aria-label="${T.done ? "Close" : "Pause and exit"}">${IC.close}</button><div class="tm">${running ? "" : `<span id="tel">${fmt(elapsedSec())}</span> elapsed`}</div><button class="tb" data-act="t-voice" aria-label="${S.voice ? "Voice on" : "Voice off"}">${S.voice ? IC.voice : IC.novoice}</button><button class="tb" data-act="t-mute" aria-label="${S.muted ? "Sound off" : "Sound on"}">${S.muted ? IC.mute : IC.sound}</button></div>
+    el.innerHTML = `<div class="tt"><button class="tb" data-act="t-x" aria-label="${T.done ? "Close" : "Pause and exit"}">${IC.close}</button><div class="tm">${running ? "" : `<span id="tel">${fmt(elapsedSec())}</span> elapsed`}</div><button class="tb" data-act="t-mute" aria-label="${S.muted ? "Sound off" : "Sound on"}">${S.muted ? IC.mute : IC.sound}</button></div>
       ${running ? `<div class="segs">${segs}</div><div class="segmeta"><span>Interval ${wNo} of ${works}</span><span><span id="tleft">${fmt(left)}</span> left</span></div>` : `<div class="tprog"><i id="tbar" style="width:${T.done ? 100 : (100 * (total - left) / total).toFixed(1)}%"></i></div>`}
       ${running ? body : `<div class="tbody${top ? " top" : ""}">${body}</div>`}
       ${running ? `<div class="tctl2"><button data-act="t-prev" aria-label="Previous">${IC.prev}</button><button class="main" data-act="t-pause">${T.paused ? IC.play + "Resume" : IC.pause + "Pause"}</button><button data-act="t-next" aria-label="Skip">${IC.next}</button></div>` : ""}`;
@@ -2840,7 +2839,6 @@ document.addEventListener("click", e => {
     case "t-plus": adjustStep(15); break;
     case "t-prev": prevStep(); break;
     case "t-mute": S.muted = !S.muted; lsSet("wt.muted", S.muted); if (!S.muted) ensureAudio(); drawTimer(true); break;
-    case "t-voice": S.voice = !S.voice; lsSet("wt.voice", S.voice); if (S.voice) say("Voice on"); else try { speechSynthesis.cancel(); } catch {} drawTimer(true); break;
     case "t-x": if (!T) break; if (T.done) closeTimer(); else if (T.ask) resumeFromAsk(); else askExit(); break;
     case "t-resume": resumeFromAsk(); break;
     case "t-end": if (T) finishTimer(true); break;
@@ -2946,6 +2944,7 @@ document.addEventListener("input", e => {
   if (t.dataset.tset) { const [b, x, s, f] = t.dataset.tset.split(","); S.draft.blocks[+b].exercises[+x].sets[+s][f] = t.value; saveDraftSoon(); return; }
   if (t.dataset.blk) { const [b, f] = t.dataset.blk.split(","); if (f === "total") return; o.blocks[+b][f] = t.value.replace(/[^0-9]/g, ""); touch(o); updTimerUI(); return; }
   if ("wtstep" in t.dataset) { const v = num(t.value); S.wtTxt = t.value; S.settings = Object.assign({}, S.settings, { wtStep: v > 0 ? v : null }); saveSettingsSoon(); return; }
+  if ("voice" in t.dataset) { S.voice = t.checked; lsSet("wt.voice", S.voice); if (S.voice) say("Voice on"); else try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {} render(); return; }
   if (t.dataset.setting) { const k = t.dataset.setting; S.settings = Object.assign({}, S.settings, { [k]: t.type === "checkbox" ? t.checked : Math.max(k === "rounds" ? 1 : 0, (k === "targetMin" ? num(t.value) : int(t.value, DEF[k])) ?? DEF[k]) }); saveSettingsSoon(); if (t.type === "checkbox") { if (k.startsWith("alarm")) rearmIfNeeded(); render(); } return; }
 });
 document.addEventListener("change", e => {
