@@ -24,3 +24,5 @@ Sara's private apps read Tempo's sync gist and plan to link into Tempo. So:
   `/* @end-testable */`; `tests/load.js` exports them.
 - Bump `CACHE` in `sw.js` when its file list changes.
 - Keep it one self-contained page with no build step.
+- The look is in [docs/STYLE.md](docs/STYLE.md). Sara's private apps share it, so change it
+  with them in mind.
